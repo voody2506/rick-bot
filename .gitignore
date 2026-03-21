@@ -38,3 +38,10 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Utility scripts (local only)
+configure_bot.py
+generate_avatar.py
+make_avatar.py
+set_avatar.py
+rick_avatar.jpg
