@@ -8,5 +8,5 @@ services:
       - ./work:/app/work
       - ./skills:/app/skills
       - ./tokens:/app/tokens
-      - ${HOME}/.claude:/root/.claude:ro
+      - ${CLAUDE_HOME:-${HOME}/.claude}:/root/.claude:ro
     restart: unless-stopped
