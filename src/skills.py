@@ -1,7 +1,5 @@
 """ClawHub skills system and external service integration."""
-import os
 import io
-import re
 import json
 import asyncio
 import zipfile

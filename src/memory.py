@@ -1,6 +1,5 @@
 """Memory management — chat history, facts, group state."""
 import json
-from pathlib import Path
 from collections import defaultdict, deque
 from src.config import MAX_HISTORY, MEMORY_DIR
 

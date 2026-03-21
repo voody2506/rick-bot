@@ -16,12 +16,12 @@ from telegram.ext import Application, MessageHandler, CommandHandler, filters, C
 from src.config import BOT_TOKEN, OWNER_ID, MAX_FACTS, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
 from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT
 from src.memory import (chat_histories, group_context, group_members, group_recent_photos,
-                        PHOTO_QUESTION_KEYWORDS, init_chat, load_history, save_history,
+                        PHOTO_QUESTION_KEYWORDS, init_chat, save_history,
                         load_facts, save_facts)
-from src.claude import run_claude, run_claude_sync
-from src.media import (get_whisper_model, transcribe_audio, web_search,
+from src.claude import run_claude
+from src.media import (transcribe_audio, web_search,
                        find_created_files, find_new_workdir_files, cleanup_work_dir)
-from src.groups import should_respond_in_group, format_members_for_prompt, build_group_response
+from src.groups import should_respond_in_group, build_group_response
 from src.parallel import try_parallel
 from src.scheduler import scheduler, is_schedule_request, handle_schedule_request
 from src.skills import (load_skills_for_chat, search_clawhub, install_clawhub_skill,

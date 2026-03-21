@@ -1,4 +1,3 @@
-import json
 from collections import deque
 from unittest.mock import patch
 from src.memory import load_history, save_history, load_facts, save_facts

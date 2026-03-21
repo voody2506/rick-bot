@@ -2,10 +2,8 @@
 import os
 import re
 import json
-import time
 import asyncio
 import logging
-import tempfile
 import urllib.request
 import urllib.parse
 from src.config import WORK_DIR, WHISPER_MODEL
