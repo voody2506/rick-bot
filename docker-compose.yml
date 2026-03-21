@@ -1,0 +1,12 @@
+services:
+  rick-bot:
+    image: ghcr.io/voody2506/rick-bot:latest
+    build: .
+    env_file: .env
+    volumes:
+      - ./memory:/app/memory
+      - ./work:/app/work
+      - ./skills:/app/skills
+      - ./tokens:/app/tokens
+      - ${HOME}/.claude:/root/.claude:ro
+    restart: unless-stopped
