@@ -619,7 +619,7 @@ async def post_init(application):
     src.scheduler._app = application
     scheduler.start()
     me = await application.bot.get_me()
-    logger.info(f"@{me.username} — Rick v10 online (scheduler started, per-chat skills, OWNER_ID)")
+    logger.info(f"@{me.username} — Rick v10.1 online (scheduler started, per-chat skills, OWNER_ID)")
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
