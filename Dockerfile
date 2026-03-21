@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm install -g @anthropic-ai/claude-code && \
     rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/root/.local/bin:$PATH"
+RUN useradd -m -s /bin/bash botuser
 
 WORKDIR /app
 
@@ -17,5 +17,8 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
     pip install --no-cache-dir -r requirements.txt
 
 COPY src/ src/
+RUN chown -R botuser:botuser /app
+
+USER botuser
 
 CMD ["python", "-m", "src.bot"]
