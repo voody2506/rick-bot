@@ -62,3 +62,4 @@ jobs:
             cd /home/rickbot/rick_bot
             docker compose pull
             docker compose up -d
+            docker image prune -af
