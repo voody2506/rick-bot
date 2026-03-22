@@ -228,17 +228,37 @@ async def send_text(msg, text):
 # ─── HANDLERS ─────────────────────────────────────────────
 
 async def send_response(msg, response, files, context):
-    """Send text OR voice, plus any created files."""
-    # TTS — send voice instead of text if triggered
-    voice = await generate_voice(response)
-    if voice:
-        try:
-            await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
-        except Exception as e:
-            logger.warning(f"TTS send error: {e}")
-            await send_text(msg, response)
+    """Send text OR voice, plus any created files. Supports multi-message via ---."""
+    # Split multi-messages
+    parts = [p.strip() for p in response.split("---") if p.strip()]
+
+    if len(parts) > 1:
+        # Multi-message mode — send each part with delay
+        for i, part in enumerate(parts):
+            if i == len(parts) - 1:
+                # Last part — maybe voice
+                voice = await generate_voice(part)
+                if voice:
+                    try:
+                        await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
+                    except Exception:
+                        await send_text(msg, part)
+                else:
+                    await send_text(msg, part)
+            else:
+                await send_text(msg, part)
+                await asyncio.sleep(1)  # delay between messages
     else:
-        await send_text(msg, response)
+        # Single message
+        voice = await generate_voice(response)
+        if voice:
+            try:
+                await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
+            except Exception as e:
+                logger.warning(f"TTS send error: {e}")
+                await send_text(msg, response)
+        else:
+            await send_text(msg, response)
 
     # GIF or sticker — occasionally send one by mood
     gif_sent = await maybe_send_gif(response, context.bot, msg.chat_id)
