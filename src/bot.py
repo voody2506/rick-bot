@@ -48,6 +48,7 @@ from src.parallel import try_parallel
 from src.scheduler import scheduler, is_schedule_request, handle_schedule_request
 from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
 from src.tts import generate_voice
+from src.memes import maybe_send_gif
 from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
 
@@ -247,8 +248,9 @@ async def send_response(msg, response, files, context):
     else:
         await send_text(msg, response)
 
-    # Sticker — occasionally send one by mood
-    sticker_id = pick_sticker(response)
+    # GIF or sticker — occasionally send one by mood
+    gif_sent = await maybe_send_gif(response, context.bot, msg.chat_id)
+    sticker_id = pick_sticker(response) if not gif_sent else None
     if sticker_id:
         try:
             await context.bot.send_sticker(chat_id=msg.chat_id, sticker=sticker_id)

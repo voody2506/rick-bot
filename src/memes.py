@@ -1,54 +1,39 @@
-"""Rick meme/GIF reactions — curated collection by mood."""
+"""Rick GIF reactions — search via Tavily/web, very rare."""
 import random
 import asyncio
 import logging
-import urllib.request
-import io
+from src.config import TAVILY_API_KEY
 
 logger = logging.getLogger(__name__)
 
-# Curated Rick and Morty GIF URLs by mood
-RICK_GIFS = {
-    "facepalm": [
-        "https://media.giphy.com/media/gKsJUddjnpPG0/giphy.gif",
-        "https://media.giphy.com/media/3o7btZ1Gm7ZL25pLMs/giphy.gif",
-    ],
-    "genius": [
-        "https://media.giphy.com/media/l41YkEYRBagaFcXTO/giphy.gif",
-        "https://media.giphy.com/media/dYPFRrezMNkmEYUsdT/giphy.gif",
-    ],
-    "drunk": [
-        "https://media.giphy.com/media/joeRYmOkLaj2U6hwdj/giphy.gif",
-        "https://media.giphy.com/media/l0HlSFaQ0JBYMPVvi/giphy.gif",
-    ],
-    "angry": [
-        "https://media.giphy.com/media/3oriO5t2QB1dk1BReE/giphy.gif",
-        "https://media.giphy.com/media/liBsVeLILcyaY/giphy.gif",
-    ],
-    "whatever": [
-        "https://media.giphy.com/media/Oj7yTCLSZjlsraNMtF/giphy.gif",
-        "https://media.giphy.com/media/xT0GqssRweIhlz209i/giphy.gif",
-    ],
-    "science": [
-        "https://media.giphy.com/media/KI9oNS4JBemyI/giphy.gif",
-        "https://media.giphy.com/media/3oEjHGr1Fhz0kyv8Ig/giphy.gif",
-    ],
+GIF_CHANCE = 0.05  # 5% chance — very rare
+
+# Mood keywords in Rick's response → search query
+MOOD_SEARCHES = {
+    "facepalm": "rick and morty facepalm",
+    "genius": "rick sanchez genius science",
+    "drunk": "rick sanchez drunk flask",
+    "angry": "rick sanchez angry middle finger",
+    "laugh": "rick and morty laughing",
+    "whatever": "rick sanchez whatever bored",
+    "science": "rick sanchez science portal",
 }
 
-# Keywords that map to moods
 MOOD_KEYWORDS = {
-    "facepalm": ["тупой", "идиот", "дебил", "кретин", "stupid", "dumb", "джерри", "jerry", "серьёзно", "seriously"],
-    "genius": ["гений", "genius", "умный", "smart", "легко", "easy", "очевидно", "obviously"],
-    "drunk": ["ырп", "burp", "бурп", "пьян", "drunk", "выпь", "flask"],
-    "angry": ["бесит", "злит", "чёрт", "damn", "hell", "shut up", "заткни"],
-    "whatever": ["пофиг", "whatever", "неважно", "ладно", "fine", "окей", "мне всё равно"],
-    "science": ["наука", "science", "физика", "квант", "формул", "теори", "atom"],
+    "facepalm": ["тупой", "идиот", "дебил", "stupid", "dumb", "джерри", "jerry"],
+    "genius": ["гений", "genius", "умный", "smart", "очевидно", "obviously"],
+    "drunk": ["ырп", "burp", "бурп", "пьян", "drunk"],
+    "angry": ["бесит", "чёрт", "damn", "заткни", "shut up"],
+    "laugh": ["ахах", "хаха", "lol", "смешно", "funny"],
+    "whatever": ["пофиг", "whatever", "ладно", "fine"],
+    "science": ["наука", "science", "физика", "квант", "портал"],
 }
 
-MEME_CHANCE = 0.12  # 12% chance on short messages
+# Cache: mood → list of GIF URLs (filled on first search)
+_gif_cache: dict[str, list[str]] = {}
 
 
-def detect_mood(text: str) -> str | None:
+def _detect_mood(text: str) -> str | None:
     text_lower = text.lower()
     for mood, keywords in MOOD_KEYWORDS.items():
         if any(kw in text_lower for kw in keywords):
@@ -56,39 +41,65 @@ def detect_mood(text: str) -> str | None:
     return None
 
 
-def _download_gif_sync(url: str) -> bytes | None:
+def _search_gif_sync(query: str) -> list[str]:
+    """Search for GIF URLs via Tavily."""
+    import json
+    import urllib.request
+
+    if not TAVILY_API_KEY:
+        return []
+
+    payload = json.dumps({
+        "api_key": TAVILY_API_KEY,
+        "query": f"{query} gif tenor",
+        "max_results": 5,
+        "search_depth": "basic",
+        "include_images": True,
+    }).encode()
+
+    req = urllib.request.Request(
+        "https://api.tavily.com/search",
+        data=payload, method="POST",
+        headers={"Content-Type": "application/json"}
+    )
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         resp = urllib.request.urlopen(req, timeout=10)
-        return resp.read()
+        data = json.loads(resp.read())
+        images = data.get("images", [])
+        # Filter for actual GIF URLs
+        gifs = [url for url in images if ".gif" in url.lower()]
+        return gifs[:5]
     except Exception as e:
-        logger.warning(f"GIF download error: {e}")
-        return None
+        logger.warning(f"GIF search error: {e}")
+        return []
 
 
-async def maybe_get_meme(response_text: str) -> tuple[io.BytesIO, str] | None:
-    """Maybe return a meme GIF based on Rick's response. Returns (BytesIO, mood) or None."""
+async def maybe_send_gif(response_text: str, bot, chat_id: int) -> bool:
+    """Maybe send a relevant GIF. Returns True if sent."""
     if len(response_text) > 100:
-        return None
+        return False
 
-    mood = detect_mood(response_text)
+    mood = _detect_mood(response_text)
     if not mood:
-        return None
+        return False
 
-    if random.random() > MEME_CHANCE:
-        return None
+    if random.random() > GIF_CHANCE:
+        return False
 
-    gif_urls = RICK_GIFS.get(mood, [])
-    if not gif_urls:
-        return None
+    # Check cache first
+    if mood not in _gif_cache:
+        query = MOOD_SEARCHES.get(mood, "rick and morty")
+        loop = asyncio.get_event_loop()
+        _gif_cache[mood] = await loop.run_in_executor(None, _search_gif_sync, query)
 
-    url = random.choice(gif_urls)
-    loop = asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, _download_gif_sync, url)
+    gifs = _gif_cache.get(mood, [])
+    if not gifs:
+        return False
 
-    if not data:
-        return None
-
-    buf = io.BytesIO(data)
-    buf.name = f"rick_{mood}.gif"
-    return buf, mood
+    gif_url = random.choice(gifs)
+    try:
+        await bot.send_animation(chat_id=chat_id, animation=gif_url)
+        return True
+    except Exception as e:
+        logger.warning(f"GIF send error: {e}")
+        return False
