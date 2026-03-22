@@ -74,8 +74,8 @@ Example Jerry day (Rick returns by evening):
 
 # Cache in memory
 _current_scenario: dict | None = None
-# Track used subplots today so they don't repeat
-_used_subplots: set[int] = set()
+# Track used subplots per chat so they don't repeat
+_used_subplots: dict[int, set[int]] = {}  # chat_id -> set of used subplot indices
 _used_subplots_date: str = ""
 SUBPLOT_CHANCE = 0.20  # 20% chance per message
 
@@ -157,7 +157,7 @@ def _get_time_of_day() -> str:
     return "evening"
 
 
-def get_scenario_for_prompt() -> str:
+def get_scenario_for_prompt(chat_id: int = 0) -> str:
     """Get scenario text to inject into Rick's prompt."""
     s = load_scenario()
     if not s.get("scenario"):
@@ -197,8 +197,8 @@ def get_scenario_for_prompt() -> str:
         f"Stay in character and reference what you're doing.\n"
     )
 
-    # Random subplot injection
-    subplot = _pick_subplot(s)
+    # Random subplot injection (per-chat)
+    subplot = _pick_subplot(s, chat_id)
     if subplot:
         result += f"\nINTERRUPTION — something just happened: {subplot}\n"
         result += "React to this interruption naturally in your response.\n"
@@ -206,28 +206,29 @@ def get_scenario_for_prompt() -> str:
     return result
 
 
-def _pick_subplot(scenario: dict) -> str | None:
-    """Pick a random unused subplot, or None."""
+def _pick_subplot(scenario: dict, chat_id: int) -> str | None:
+    """Pick a random unused subplot for this chat, or None."""
     global _used_subplots, _used_subplots_date
 
     subplots = scenario.get("subplots", [])
     if not subplots:
         return None
 
-    # Reset used subplots on new day
+    # Reset all chats' used subplots on new day
     today = scenario.get("date", "")
     if _used_subplots_date != today:
-        _used_subplots = set()
+        _used_subplots = {}
         _used_subplots_date = today
 
     if random.random() > SUBPLOT_CHANCE:
         return None
 
-    # Pick from unused subplots
-    available = [(i, s) for i, s in enumerate(subplots) if i not in _used_subplots]
+    # Pick from subplots not yet seen by this chat
+    used = _used_subplots.get(chat_id, set())
+    available = [(i, s) for i, s in enumerate(subplots) if i not in used]
     if not available:
         return None
 
     idx, subplot = random.choice(available)
-    _used_subplots.add(idx)
+    _used_subplots.setdefault(chat_id, set()).add(idx)
     return subplot

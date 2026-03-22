@@ -80,7 +80,7 @@ def build_prompt(chat_id, user_message):
     prompt += f"Current date/time: {now.strftime('%Y-%m-%d %H:%M, %A')}\n"
 
     # Daily scenario
-    prompt += get_scenario_for_prompt() + "\n"
+    prompt += get_scenario_for_prompt(chat_id) + "\n"
 
     # Dynamic mood (per-chat)
     mood_mod = get_mood_modifier(chat_id)

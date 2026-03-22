@@ -30,7 +30,7 @@ async def maybe_respond_in_group(chat_id, username, user_message):
     members_list = format_members_for_prompt(chat_id)
 
     update_mood(chat_id, user_message)
-    scenario = get_scenario_for_prompt()
+    scenario = get_scenario_for_prompt(chat_id)
     mood_mod = get_mood_modifier(chat_id)
     if mood_mod:
         scenario += f"\nCURRENT MOOD SHIFT: {mood_mod}\n"
