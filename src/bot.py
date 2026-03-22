@@ -641,8 +641,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         show_keywords = ["покажи", "посмотри", "открой", "глянь", "show", "look", "check", "скриншот", "screenshot"]
         want_screenshot = any(w in text_lower for w in show_keywords) or bool(url_match)
 
+        # Auto-browse: detect action intent → search → open top result
+        browse_keywords = ["закажи", "забронируй", "купи", "найди сайт", "открой сайт",
+                           "зайди на", "order", "book", "buy", "find site", "go to site"]
+        if not url_match and not has_active_session(chat_id) and any(w in text_lower for w in browse_keywords):
+            search_result = await web_search(user_text)
+            if search_result:
+                # Extract first URL from search results
+                found_url = re.search(r'https?://[^\s\]]+', search_result)
+                if found_url:
+                    url_match = found_url
+                    user_text = f"{user_text}\n\n[Search results]:\n{search_result}"
+                    want_screenshot = True
+
         if url_match:
-            url = url_match.group(0)
+            url = url_match.group(0).rstrip('.,;:)')
             logger.info(f"Browsing URL: {url}")
             sc, page_text = await navigate(chat_id, url)
             if want_screenshot:
