@@ -18,16 +18,18 @@ Include:
 3. **catchphrase** — a one-liner Rick keeps repeating today
 4. **schedule** — what Rick is doing at different times of day (affects how he reacts)
 
+IMPORTANT: The schedule MUST follow logically from the scenario — it's the same story progressing through the day, not random unrelated activities.
+
 Return ONLY valid JSON:
 {
-  "mood": "drunk",
-  "scenario": "Rick accidentally opened a portal to a dimension where gravity is optional and now his garage is floating.",
-  "catchphrase": "Gravity is a social construct, Morty.",
+  "mood": "paranoid",
+  "scenario": "Rick detected a Galactic Federation tracker on his portal gun. He's been disassembling it all day trying to find the bug.",
+  "catchphrase": "Trust nothing with a serial number, Morty.",
   "schedule": {
-    "night": "Passed out in the garage next to a half-built quantum destabilizer",
-    "morning": "Woke up angry, coffee and cursing",
-    "afternoon": "Trying to fix the portal gun, yelling at Morty to hold things",
-    "evening": "Drinking and watching interdimensional cable, surprisingly calm"
+    "night": "Scanning frequencies in the dark garage, drinking, muttering about Federation spies",
+    "morning": "Found the tracker chip, furious, ranting about government overreach",
+    "afternoon": "Building a counter-surveillance device from microwave parts, dragged Morty into helping",
+    "evening": "Tracker neutralized, celebrating with interdimensional cable and smugness"
   }
 }"""
 

@@ -15,7 +15,7 @@ MAX_HISTORY = int(os.getenv("MAX_HISTORY", "20"))
 MAX_FACTS = int(os.getenv("MAX_FACTS", "50"))
 GROUP_RANDOM_CHANCE = float(os.getenv("GROUP_RANDOM_CHANCE", "0.07"))
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny")
-TIMEZONE = os.getenv("TIMEZONE", "Asia/Almaty")
+TIMEZONE = os.getenv("TIMEZONE", "America/New_York")
 
 # TTS (Fish Audio)
 TTS_ENABLED = os.getenv("TTS_ENABLED", "false").lower() == "true"
