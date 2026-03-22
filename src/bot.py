@@ -131,7 +131,7 @@ def build_prompt(chat_id, user_message):
             if i < len(history): prompt += f"User: {history[i]}\n"
             if i+1 < len(history): prompt += f"Rick: {history[i+1]}\n"
         prompt += "\n"
-    prompt += f"User: {user_message}\nRick:"
+    prompt += f"[chat_id: {chat_id}]\nUser: {user_message}\nRick:"
     return prompt
 
 async def ask_rick(chat_id, user_message, image_path=None):
