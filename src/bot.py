@@ -10,10 +10,29 @@ import time
 import asyncio
 import logging
 import tempfile
+import uuid
+from collections import defaultdict, deque
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 
 from src.config import BOT_TOKEN, OWNER_ID, MAX_FACTS, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
+
+# ─── RATE LIMITING ───────────────────────────────────────
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX = 10     # max messages per window
+_user_timestamps: dict[int, deque] = defaultdict(lambda: deque(maxlen=RATE_LIMIT_MAX))
+
+
+def is_rate_limited(user_id: int) -> bool:
+    now = time.time()
+    timestamps = _user_timestamps[user_id]
+    # Remove old timestamps
+    while timestamps and now - timestamps[0] > RATE_LIMIT_WINDOW:
+        timestamps.popleft()
+    if len(timestamps) >= RATE_LIMIT_MAX:
+        return True
+    timestamps.append(now)
+    return False
 from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT
 from src.memory import (chat_histories, group_context, group_members, group_recent_photos,
                         PHOTO_QUESTION_KEYWORDS, init_chat, save_history,
@@ -86,19 +105,25 @@ async def ask_rick(chat_id, user_message, image_path=None):
         prompt = user_message or "Что на этом фото? Опиши по-рикски."
         response = await run_claude(prompt, 90, image_path=image_path)
     else:
-        # Detect search intent and inject real web results before calling Claude
+        # Web search only for longer messages with explicit search intent
         search_keywords = ["найди", "поищи", "что такое", "расскажи о", "расскажи про",
-                           "где найти", "сколько стоит", "как найти", "поиск",
-                           "find", "search", "look up"]
+                           "где найти", "сколько стоит", "как найти",
+                           "find", "search", "look up", "what is"]
         msg_lower = (user_message or "").lower()
         augmented_message = user_message
-        if any(kw in msg_lower for kw in search_keywords):
+        if len(user_message) > 15 and any(kw in msg_lower for kw in search_keywords):
             search_results = await web_search(user_message)
             if search_results:
-                augmented_message = f"{user_message}\n\n[Результаты поиска]:\n{search_results}"
+                augmented_message = f"{user_message}\n\n[Search results]:\n{search_results}"
                 logger.info(f"Search results injected for: {user_message[:60]}")
 
-        response = await try_parallel(chat_id, augmented_message)
+        # Parallel only for complex messages (long + contains list/comparison markers)
+        parallel_markers = ["и ", "а также", "плюс", "сравни", "vs", "versus",
+                            "and also", "compare", "list", "перечисли"]
+        if len(augmented_message) > 60 and any(m in msg_lower for m in parallel_markers):
+            response = await try_parallel(chat_id, augmented_message)
+        else:
+            response = None
         if not response:
             response = await run_claude(build_prompt(chat_id, augmented_message), 120)
 
@@ -259,7 +284,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ВСЕГДА скачиваем фото в группе — нужно для follow-up вопросов
         photo = msg.photo[-1]
         WORK_DIR.mkdir(parents=True, exist_ok=True)
-        image_path = str(WORK_DIR / f"photo_{chat_id}_{photo.file_id[:8]}.jpg")
+        image_path = str(WORK_DIR / f"photo_{chat_id}_{uuid.uuid4().hex[:8]}.jpg")
         try:
             file = await context.bot.get_file(photo.file_id)
             await file.download_to_drive(image_path)
@@ -306,16 +331,16 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     photo = msg.photo[-1]
     WORK_DIR.mkdir(parents=True, exist_ok=True)
-    image_path = str(WORK_DIR / f"photo_{chat_id}_{photo.file_id[:8]}.jpg")
+    image_path = str(WORK_DIR / f"photo_{chat_id}_{uuid.uuid4().hex[:8]}.jpg")
 
     try:
         file = await context.bot.get_file(photo.file_id)
         await file.download_to_drive(image_path)
     except Exception as e:
-        await msg.reply_text(f"ырп Не смог скачать фото: {e}")
+        await msg.reply_text(f"burp Couldn't download the photo: {e}")
         return
 
-    user_text = msg.caption or "Что на этом фото? Опиши по-рикски."
+    user_text = msg.caption or "What's in this photo? Describe it, Rick-style."
 
     async def keep_typing():
         for _ in range(20):
@@ -325,11 +350,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     init_chat(chat_id)
     typing = asyncio.create_task(keep_typing())
-    response, files = await ask_rick(chat_id, user_text, image_path=image_path)
-    typing.cancel()
-
-    try: os.unlink(image_path)
-    except: pass
+    try:
+        response, files = await ask_rick(chat_id, user_text, image_path=image_path)
+    finally:
+        typing.cancel()
+        try: os.unlink(image_path)
+        except Exception: pass
 
     await send_response(msg, response, files, context)
 
@@ -339,7 +365,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_text = msg.text
     user = update.effective_user
-    username = user.first_name if user else "Кто-то"
+    username = user.first_name if user else "Someone"
+
+    # Rate limiting
+    if user and is_rate_limited(user.id):
+        return
+
+    # Inject reply context (#7)
+    if msg.reply_to_message and msg.reply_to_message.text and not msg.reply_to_message.photo:
+        quoted = msg.reply_to_message.text[:200]
+        reply_user = msg.reply_to_message.from_user
+        reply_name = reply_user.first_name if reply_user else "Someone"
+        user_text = f"[Replying to {reply_name}: \"{quoted}\"]\n\n{user_text}"
 
     if msg.chat.type in ("group", "supergroup"):
         # Сохраняем участника
