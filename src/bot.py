@@ -6,7 +6,6 @@ load_dotenv()
 
 import json
 import os
-import re
 import time
 import asyncio
 import logging
@@ -37,13 +36,13 @@ def is_rate_limited(user_id: int) -> bool:
 from datetime import datetime
 from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT, SUMMARIZE_PROMPT, PROFILE_PROMPT
 from src.memory import (chat_histories, group_context, group_members, group_recent_photos,
-                        PHOTO_QUESTION_KEYWORDS, init_chat, save_history,
+                        init_chat, save_history,
                         load_facts, save_facts, load_summaries, save_summary,
                         load_profile, save_profile)
 from src.claude import run_claude
 from src.media import (transcribe_audio, find_created_files, find_new_workdir_files, cleanup_work_dir)
 from src.groups import should_respond_in_group, build_group_response
-from src.scheduler import scheduler, is_schedule_request, handle_schedule_request
+from src.scheduler import scheduler
 from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -58,7 +57,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FILE_INTENT_KEYWORDS = ["вот файл", "скидываю", "держи файл"]
 
 # ─── ФАКТЫ ────────────────────────────────────────────────
 
@@ -236,8 +234,6 @@ async def send_response(msg, response, files, context):
         except Exception as e:
             logger.warning(f"Sticker send error: {e}")
 
-    if not files and any(kw in response.lower() for kw in FILE_INTENT_KEYWORDS):
-        await msg.reply_text("📎 [File sending in development]")
     for file_path in files:
         try:
             with open(file_path, "rb") as f:
@@ -487,14 +483,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_username = context.bot.username or ""
         reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
                        and msg.reply_to_message.from_user.username == bot_username)
-        tl_pre = user_text.lower()
-        is_skill_cmd = any(t in tl_pre for t in [
-            "найди skill", "найди скилл", "есть ли skill", "есть ли скилл",
-            "поищи skill", "поищи скилл", "skill search", "search skill",
-            "установи skill", "установи скилл", "install skill",
-            "skill install", "поставь skill", "поставь скилл"
-        ])
-        if not is_skill_cmd and not should_respond_in_group(user_text, bot_username, reply_to_bot, chat_id, username): return
+        if not should_respond_in_group(user_text, bot_username, reply_to_bot, chat_id, username): return
         if bot_username:
             user_text = user_text.replace(f"@{bot_username}", "").strip()
 
@@ -505,42 +494,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except: break
 
     init_chat(chat_id)
-
-    # Детект запросов на поиск/установку skill по естественному языку
-    tl = user_text.lower()
-    skill_search_triggers = ["найди skill", "найди скилл", "есть ли skill", "есть ли скилл",
-                              "поищи skill", "поищи скилл", "skill search", "search skill"]
-    skill_install_triggers = ["установи skill", "установи скилл", "install skill",
-                               "skill install", "поставь skill", "поставь скилл"]
-    for trigger in skill_search_triggers:
-        if trigger in tl:
-            query = re.sub(r'.*(?:' + re.escape(trigger) + r')\s*', '', user_text, flags=re.IGNORECASE).strip()
-            if not query:
-                query = user_text
-            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            result = await search_clawhub(query)
-            try:
-                await msg.reply_text(result, parse_mode="Markdown")
-            except Exception:
-                await msg.reply_text(result)
-            return
-    for trigger in skill_install_triggers:
-        if trigger in tl:
-            slug = re.sub(r'.*(?:' + re.escape(trigger) + r')\s*', '', user_text, flags=re.IGNORECASE).strip().split()[0] if re.sub(r'.*(?:' + re.escape(trigger) + r')\s*', '', user_text, flags=re.IGNORECASE).strip() else ""
-            if slug:
-                await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-                result = await install_clawhub_skill(slug, chat_id)
-                try:
-                    await msg.reply_text(result, parse_mode="Markdown")
-                except Exception:
-                    await msg.reply_text(result)
-                return
-
-    # Детект запросов на создание расписания
-    if is_schedule_request(user_text):
-        result = await handle_schedule_request(chat_id, user_text)
-        await msg.reply_text(result, parse_mode="Markdown")
-        return
 
     # External services — no auto-detection, let Rick handle naturally via Claude
 
@@ -584,10 +537,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if photo_info and (time.time() - photo_info["ts"]) < 300:
             recent_context = list(group_context.get(chat_id, []))[-4:]
             has_recent_photo = any("[фото]" in str(m) for m in recent_context)
-            msg_lower_check = user_text.lower()
-            is_photo_question = ("?" in user_text or
-                                 any(kw in msg_lower_check for kw in PHOTO_QUESTION_KEYWORDS))
-            if has_recent_photo and is_photo_question and os.path.exists(photo_info["path"]):
+            if has_recent_photo and os.path.exists(photo_info["path"]):
                 recent_photo_path = photo_info["path"]
 
         if recent_photo_path:
