@@ -220,6 +220,19 @@ async def summarize_and_update_profile(chat_id):
     except Exception as e:
         logger.error(f"Summarize/profile error: {e}")
 
+# ─── HELPERS ──────────────────────────────────────────────
+
+async def send_text(msg, text):
+    """Send text with Markdown formatting, fallback to plain text."""
+    try:
+        await msg.reply_text(text, parse_mode="Markdown")
+    except Exception:
+        try:
+            await msg.reply_text(text, parse_mode=None)
+        except Exception as e:
+            logger.error(f"Send text error: {e}")
+
+
 # ─── HANDLERS ─────────────────────────────────────────────
 
 async def send_response(msg, response, files, context):
@@ -231,9 +244,9 @@ async def send_response(msg, response, files, context):
             await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
         except Exception as e:
             logger.warning(f"TTS send error: {e}")
-            await msg.reply_text(response)  # fallback to text
+            await send_text(msg, response)
     else:
-        await msg.reply_text(response)
+        await send_text(msg, response)
 
     # Meme GIF or sticker — occasionally send one
     meme_result = await maybe_get_meme(response)
@@ -322,7 +335,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             init_chat(chat_id)
             response, files = await ask_rick(chat_id, f"[голосовое сообщение]: {text}")
 
-        await msg.reply_text(response)
+        await send_text(msg, response)
 
     finally:
         try:
@@ -360,7 +373,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not response:
             response = "Burp, sent a file. Interesting."
         group_context[chat_id].append(f"Рик: {response[:100]}")
-        await msg.reply_text(response)
+        await send_text(msg, response)
     else:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         init_chat(chat_id)
@@ -647,7 +660,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_histories[chat_id].clear()
     save_history(chat_id, chat_histories[chat_id])
     response, _ = await ask_rick(chat_id, "Провал в памяти. Коротко.")
-    await update.message.reply_text(response)
+    await send_text(update.message, response)
 
 async def forget_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
