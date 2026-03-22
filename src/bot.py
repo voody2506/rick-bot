@@ -90,7 +90,8 @@ def build_prompt(chat_id, user_message):
     facts = load_facts(chat_id)
     summaries = load_summaries(chat_id)
     profile = load_profile(chat_id)
-    prompt = RICK_SYSTEM + "\n\n"
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    prompt = RICK_SYSTEM.format(work_dir=str(WORK_DIR)) + "\n\n"
 
     # Time awareness
     now = datetime.now()
