@@ -10,13 +10,13 @@ GIF_CHANCE = 0.05  # 5% chance — very rare
 
 # Mood keywords in Rick's response → search query
 MOOD_SEARCHES = {
-    "facepalm": "rick and morty facepalm",
-    "genius": "rick sanchez genius science",
-    "drunk": "rick sanchez drunk flask",
-    "angry": "rick sanchez angry middle finger",
-    "laugh": "rick and morty laughing",
-    "whatever": "rick sanchez whatever bored",
-    "science": "rick sanchez science portal",
+    "facepalm": "facepalm meme gif",
+    "genius": "genius big brain meme gif",
+    "drunk": "drunk meme gif funny",
+    "angry": "angry rage meme gif",
+    "laugh": "laughing meme gif reaction",
+    "whatever": "whatever bored meme gif",
+    "science": "science meme gif nerd",
 }
 
 MOOD_KEYWORDS = {
