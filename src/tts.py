@@ -58,9 +58,19 @@ def _generate_sync(text: str) -> bytes | None:
 
 
 async def generate_voice(text: str) -> io.BytesIO | None:
-    """Generate TTS audio async. Returns BytesIO with MP3 or None."""
+    """Generate TTS audio async. Returns BytesIO with MP3 or None. Only for Rick."""
     if not TTS_ENABLED or not FISH_AUDIO_API_KEY:
         return None
+
+    # Don't send voice if Morty/Jerry is responding (voice is Rick's)
+    from src.scenario import load_scenario, _get_time_of_day
+    s = load_scenario()
+    schedule = s.get("schedule", {})
+    slot = schedule.get(_get_time_of_day(), {})
+    current_who = slot.get("who", s.get("character", "rick")) if isinstance(slot, dict) else s.get("character", "rick")
+    if current_who != "rick":
+        return None
+
     if not should_voice(text):
         return None
 
