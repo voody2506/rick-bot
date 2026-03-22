@@ -9,7 +9,7 @@ from src.config import TTS_ENABLED, FISH_AUDIO_API_KEY, FISH_AUDIO_VOICE_ID
 
 logger = logging.getLogger(__name__)
 
-MAX_TTS_LENGTH = 200  # only short responses get voice
+MAX_TTS_LENGTH = 100  # only short responses get voice — keep audio brief
 
 # Emotional markers — Rick sends voice when he's fired up
 VOICE_MARKERS = [
