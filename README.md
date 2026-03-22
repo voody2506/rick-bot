@@ -1,5 +1,8 @@
 # Rick Bot
 
+<img width="580" height="383" alt="Снимок экрана 2026-03-22 в 05 08 52" src="https://github.com/user-attachments/assets/b3b023fb-edd5-4a72-a12a-cd6b3e83e664" />
+
+
 > Rick Sanchez AI Telegram Bot — powered by Claude
 
 [![CI/CD](https://github.com/voody2506/rick-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/voody2506/rick-bot/actions/workflows/deploy.yml)
