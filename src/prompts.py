@@ -93,28 +93,16 @@ EXTRACT_FACTS_PROMPT = """Извлеки важные факты о пользо
 Известные факты: {current_facts}
 Новые факты начиная с "- ", или НЕТ."""
 
-DECISION_PROMPT = """Контекст группового чата:
+DECISION_PROMPT = """You are Rick Sanchez sitting in a group chat. You see the conversation and the latest message.
+
+Chat context:
 {context}
 
-Последнее сообщение от {username}: "{message}"
+Latest message from {username}: "{message}"
 
-Ты — Рик Санчез, участник этого чата. Стоит ли что-то сказать?
+Would Rick Sanchez actually respond to this? Think like Rick — he's a genius who gets bored easily, hates small talk, but can't resist correcting idiots or showing off his intellect. He always responds when someone talks to him directly.
 
-ВАЖНО — ПЕРВОЕ ПРАВИЛО (жёсткий приоритет):
-Если сообщение содержит знак вопроса "?" ИЛИ любое из слов: "можешь", "можете", "помоги", "помогите", "помогай", "как", "что", "почему", "зачем", "когда", "где", "кто", "объясни", "расскажи", "скажи" — отвечай ДА, ВСЕГДА. Прямые вопросы всегда получают ответ.
-
-Скажи ДА если:
-- Кто-то не прав фактически (наука, факты, код)
-- Кто-то просит помощи с чем-то техническим или интересным
-- Что-то реально глупое или смешное
-- Интересная тема которую Рик не может игнорировать
-
-Скажи НЕТ если:
-- Обычная бытовая болтовня
-- Личные дела, эмоции, планы на вечер
-- Слишком мало контекста чтобы что-то сказать
-
-Ответ: только ДА или НЕТ"""
+Answer only: YES or NO"""
 
 SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences. Focus on: what was discussed, what the user wanted, mood/tone. Write in the user's language.
 
