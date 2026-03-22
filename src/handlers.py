@@ -10,7 +10,8 @@ import uuid
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.config import WORK_DIR
+import random
+from src.config import WORK_DIR, RICK_NAMES, GROUP_RANDOM_CHANCE
 from src.memory import (group_context, group_members,
                         group_recent_photos, init_chat)
 from src.claude import run_claude
@@ -275,6 +276,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_context[chat_id].append(f"{username}: {user_text[:100]}")
 
         bot_username = context.bot.username or ""
+        text_lower = user_text.lower()
+
+        # Determine if Rick is directly addressed
+        is_mentioned = bot_username and f"@{bot_username.lower()}" in text_lower
+        is_reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
+                           and msg.reply_to_message.from_user.username == bot_username)
+        is_name_called = any(name in text_lower for name in RICK_NAMES)
+        directly_addressed = is_mentioned or is_reply_to_bot or is_name_called
+
+        # Pre-filter: only call Claude if directly addressed or random chance hits
+        if not directly_addressed and random.random() > GROUP_RANDOM_CHANCE:
+            return  # silently skip — save API call
+
         if bot_username:
             user_text = user_text.replace(f"@{bot_username}", "").strip()
 
