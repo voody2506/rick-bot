@@ -155,8 +155,14 @@ async def ask_rick(chat_id, user_message, image_path=None):
     if answering_challenge:
         resolve_challenge(chat_id)
 
+    # Check for created files even if response is empty (CLI may create files without text output)
+    files = list(set(find_created_files(response or "") + find_new_workdir_files(start_time)))
+
     if not response:
-        return "burp ...can't hear you. Say again, Morty.", []
+        if files:
+            response = "burp Here, I made the thing. Don't say I never do anything for you."
+        else:
+            return "burp ...can't hear you. Say again, Morty.", []
 
     # Parse and strip scenario update marker
     match = re.search(r'\nSCENARIO_UPDATE:\s*who=(\w+)\s+activity=(.+)$', response, re.MULTILINE)
@@ -164,8 +170,6 @@ async def ask_rick(chat_id, user_message, image_path=None):
         from src.scenario import set_slot_override
         set_slot_override(chat_id, match.group(1), match.group(2).strip())
         response = response[:match.start()].strip()
-
-    files = list(set(find_created_files(response) + find_new_workdir_files(start_time)))
 
     chat_histories[chat_id].append(user_message or "[photo]")
     chat_histories[chat_id].append(response)
