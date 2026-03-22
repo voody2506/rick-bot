@@ -19,17 +19,12 @@ VOICE_MARKERS = [
 ]
 
 
-VOICE_CHANCE = 0.3  # 30% chance even when emotional
+VOICE_CHANCE = 0.07  # 7% chance on short messages
 
 
 def should_voice(text: str) -> bool:
-    """Decide if Rick should send a voice message — short + emotional + random."""
+    """Decide if Rick should send a voice message — short + 7% random."""
     if len(text) > MAX_TTS_LENGTH:
-        return False
-    text_lower = text.lower()
-    is_emotional = ("!" in text or "?!" in text or
-                    any(m in text_lower for m in VOICE_MARKERS))
-    if not is_emotional:
         return False
     return random.random() < VOICE_CHANCE
 
