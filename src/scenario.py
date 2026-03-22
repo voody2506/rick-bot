@@ -1,5 +1,6 @@
-"""Daily scenario generator — Rick's global mood and storyline."""
+"""Daily scenario generator — Rick's global mood and storyline with subplots."""
 import json
+import random
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -18,8 +19,9 @@ Include:
 3. **scenario** — 2-3 sentences about what's happening today. Something absurd, sci-fi, very Rick and Morty.
 4. **catchphrase** — a one-liner the character keeps repeating today
 5. **schedule** — what's happening at different times. MUST follow logically from scenario. Each time slot has "who" (rick/morty/jerry) and "activity". Rick usually comes back by evening if he was absent.
+6. **subplots** — 4 mini-events that can randomly happen during the day. They MUST be related to the main scenario. Each is 1-2 sentences — something unexpected, funny, or chaotic that interrupts the main story. These add unpredictability to conversations.
 
-IMPORTANT: The schedule MUST follow logically from the scenario — it's the same story progressing through the day.
+IMPORTANT: The schedule MUST follow logically from the scenario — it's the same story progressing through the day. Subplots are side-events within the same story — NOT separate stories.
 Most days Rick responds normally. But ~5% of the time something crazy happens and Morty has to take over (Rick is a pickle, in prison, lost in a dimension, unconscious, etc.)
 
 Return ONLY valid JSON:
@@ -33,7 +35,13 @@ Return ONLY valid JSON:
     "morning": {"who": "rick", "activity": "Found the tracker, furious, ranting"},
     "afternoon": {"who": "rick", "activity": "Building counter-surveillance device"},
     "evening": {"who": "rick", "activity": "Tracker neutralized, smug and drinking"}
-  }
+  },
+  "subplots": [
+    "A second tracker was found inside Rick's flask — he's furious and paranoid about who touched his stuff",
+    "Morty accidentally broadcast Rick's location to the Galactic Federation while trying to help",
+    "Birdperson sent a cryptic message: 'They know.' Rick is now questioning if Birdperson is compromised",
+    "The counter-surveillance device gained sentience and is now scanning Rick back"
+  ]
 }
 
 Example Morty day (Rick returns by evening):
@@ -66,6 +74,10 @@ Example Jerry day (Rick returns by evening):
 
 # Cache in memory
 _current_scenario: dict | None = None
+# Track used subplots today so they don't repeat
+_used_subplots: set[int] = set()
+_used_subplots_date: str = ""
+SUBPLOT_CHANCE = 0.20  # 20% chance per message
 
 
 def load_scenario() -> dict:
@@ -184,4 +196,38 @@ def get_scenario_for_prompt() -> str:
         f"Your catchphrase today: \"{s['catchphrase']}\"\n"
         f"Stay in character and reference what you're doing.\n"
     )
+
+    # Random subplot injection
+    subplot = _pick_subplot(s)
+    if subplot:
+        result += f"\nINTERRUPTION — something just happened: {subplot}\n"
+        result += "React to this interruption naturally in your response.\n"
+
     return result
+
+
+def _pick_subplot(scenario: dict) -> str | None:
+    """Pick a random unused subplot, or None."""
+    global _used_subplots, _used_subplots_date
+
+    subplots = scenario.get("subplots", [])
+    if not subplots:
+        return None
+
+    # Reset used subplots on new day
+    today = scenario.get("date", "")
+    if _used_subplots_date != today:
+        _used_subplots = set()
+        _used_subplots_date = today
+
+    if random.random() > SUBPLOT_CHANCE:
+        return None
+
+    # Pick from unused subplots
+    available = [(i, s) for i, s in enumerate(subplots) if i not in _used_subplots]
+    if not available:
+        return None
+
+    idx, subplot = random.choice(available)
+    _used_subplots.add(idx)
+    return subplot
