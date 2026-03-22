@@ -13,7 +13,7 @@ SCENARIO_FILE = MEMORY_DIR / "daily_scenario.json"
 SCENARIO_PROMPT = """You are a writer for Rick and Morty. Generate today's scenario.
 
 Include:
-1. **character** — who responds today. Usually "rick" (85%). Sometimes another character from Rick and Morty: "morty", "jerry", "meeseeks", "birdperson", "evil_morty", "summer", "scary_terry", "mr_poopybutthole" — anyone! Be creative. Non-Rick days should be rare (~15%) and always have a funny reason why that character has Rick's phone.
+1. **character** — who responds today. Almost always "rick" (95%). Very rarely (~5%) another character: "morty", "jerry", or any other Rick and Morty character — but this should be EXTREMELY rare and always have a funny reason.
 2. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug, scared (for Morty)
 3. **scenario** — 2-3 sentences about what's happening today. Something absurd, sci-fi, very Rick and Morty.
 4. **catchphrase** — a one-liner the character keeps repeating today
