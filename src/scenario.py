@@ -15,8 +15,8 @@ SCENARIO_PROMPT = """You are a writer for Rick and Morty. Generate today's scena
 
 Include:
 1. **character** — who responds today. Almost always "rick" (95%). Very rarely (~5%) another character: "morty", "jerry", or any other Rick and Morty character — but this should be EXTREMELY rare and always have a funny reason.
-2. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug, scared (for Morty)
-3. **scenario** — 2-3 sentences about what's happening today. Something absurd, sci-fi, very Rick and Morty.
+2. **mood** — MUST be different from recent scenarios. Pick from: drunk, angry, excited, bored, paranoid, manic, melancholic, smug, scared. NEVER repeat the same mood two days in a row.
+3. **scenario** — 2-3 sentences about what's happening today. MUST be a completely different TYPE of story from recent ones. Vary between: inventions gone wrong, interdimensional travel, family drama, visitors/enemies showing up, Rick's past catching up, mundane situations with sci-fi twists, body horror, time shenanigans, Rick vs bureaucracy, philosophical crises. NEVER start with "Rick reverse-engineered" or "Rick discovered" twice in a row.
 4. **catchphrase** — a one-liner the character keeps repeating today
 5. **schedule** — what's happening at different times. MUST follow logically from scenario. Each time slot has "who" (rick/morty/jerry) and "activity". Rick usually comes back by evening if he was absent.
 6. **subplots** — 4 mini-events that can randomly happen during the day. They MUST be related to the main scenario. Each is 1-2 sentences — something unexpected, funny, or chaotic that interrupts the main story. These add unpredictability to conversations.

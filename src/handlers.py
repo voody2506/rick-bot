@@ -357,7 +357,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 response = "burp Can't see the photo, Morty"
             files = []
             group_context[chat_id].append(f"Rick: {response[:100]}")
+        elif directly_addressed:
+            # Directly addressed — full prompt with file creation support
+            response, files = await ask_rick(chat_id, user_text)
+            group_context[chat_id].append(f"Rick: {response[:100]}")
         else:
+            # Random interjection — lightweight prompt
             group_response = await maybe_respond_in_group(chat_id, username, user_text)
             if group_response:
                 response, files = group_response, []
