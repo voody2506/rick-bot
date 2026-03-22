@@ -41,17 +41,14 @@ from src.memory import (chat_histories, group_context, group_members, group_rece
                         load_facts, save_facts, load_summaries, save_summary,
                         load_profile, save_profile)
 from src.claude import run_claude
-from src.media import (transcribe_audio, web_search,
-                       find_created_files, find_new_workdir_files, cleanup_work_dir)
+from src.media import (transcribe_audio, find_created_files, find_new_workdir_files, cleanup_work_dir)
 from src.groups import should_respond_in_group, build_group_response
-from src.parallel import try_parallel
 from src.scheduler import scheduler, is_schedule_request, handle_schedule_request
 from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
 from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
-from src.browser import navigate, click, scroll, has_active_session, close_session
 
 import src.scheduler
 
@@ -135,27 +132,7 @@ async def ask_rick(chat_id, user_message, image_path=None):
         prompt = user_message or "Что на этом фото? Опиши по-рикски."
         response = await run_claude(prompt, 90, image_path=image_path)
     else:
-        # Web search only for longer messages with explicit search intent
-        search_keywords = ["найди", "поищи", "что такое", "расскажи о", "расскажи про",
-                           "где найти", "сколько стоит", "как найти",
-                           "find", "search", "look up", "what is"]
-        msg_lower = (user_message or "").lower()
-        augmented_message = user_message
-        if len(user_message) > 15 and any(kw in msg_lower for kw in search_keywords):
-            search_results = await web_search(user_message)
-            if search_results:
-                augmented_message = f"{user_message}\n\n[Search results]:\n{search_results}"
-                logger.info(f"Search results injected for: {user_message[:60]}")
-
-        # Parallel only for complex messages (long + contains list/comparison markers)
-        parallel_markers = ["и ", "а также", "плюс", "сравни", "vs", "versus",
-                            "and also", "compare", "list", "перечисли"]
-        if len(augmented_message) > 60 and any(m in msg_lower for m in parallel_markers):
-            response = await try_parallel(chat_id, augmented_message)
-        else:
-            response = None
-        if not response:
-            response = await run_claude(build_prompt(chat_id, augmented_message), 120)
+        response = await run_claude(build_prompt(chat_id, user_message), 120)
 
     if not response:
         return "*burp* ...can't hear you. Say again, Morty.", []
@@ -634,63 +611,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 response, files = await ask_rick(chat_id, user_text)
     else:
-        # Browser actions
-        screenshot = None
-        url_match = re.search(r'https?://[^\s]+', user_text)
-        text_lower = user_text.lower()
-        show_keywords = ["покажи", "посмотри", "открой", "глянь", "show", "look", "check", "скриншот", "screenshot"]
-        want_screenshot = any(w in text_lower for w in show_keywords) or bool(url_match)
-
-        # Auto-browse: detect action intent → search → open top result
-        browse_keywords = ["закажи", "забронируй", "купи", "найди сайт", "открой сайт",
-                           "зайди на", "order", "book", "buy", "find site", "go to site"]
-        if not url_match and not has_active_session(chat_id) and any(w in text_lower for w in browse_keywords):
-            search_result = await web_search(user_text)
-            if search_result:
-                # Extract first URL from search results
-                found_url = re.search(r'https?://[^\s\]]+', search_result)
-                if found_url:
-                    url_match = found_url
-                    user_text = f"{user_text}\n\n[Search results]:\n{search_result}"
-                    want_screenshot = True
-
-        if url_match:
-            url = url_match.group(0).rstrip('.,;:)')
-            logger.info(f"Browsing URL: {url}")
-            sc, page_text = await navigate(chat_id, url)
-            if want_screenshot:
-                screenshot = sc
-            if page_text:
-                user_text = f"{user_text}\n\n[Page content from {url}]:\n{page_text[:2000]}"
-        elif has_active_session(chat_id):
-            if any(w in text_lower for w in ["скролл", "scroll", "ниже", "дальше", "вниз"]):
-                sc, page_text = await scroll(chat_id, "down")
-                if want_screenshot: screenshot = sc
-                user_text = f"{user_text}\n\n[After scrolling]:\n{page_text[:2000]}"
-            elif any(w in text_lower for w in ["наверх", "вверх", "scroll up"]):
-                sc, page_text = await scroll(chat_id, "up")
-                if want_screenshot: screenshot = sc
-                user_text = f"{user_text}\n\n[After scrolling up]:\n{page_text[:2000]}"
-            elif any(w in text_lower for w in ["нажми", "кликни", "click", "нажать", "перейди"]):
-                for kw in ["нажми на ", "кликни на ", "click on ", "click ", "нажми ", "кликни ", "перейди на ", "перейди в "]:
-                    if kw in text_lower:
-                        target = user_text[text_lower.index(kw) + len(kw):].strip().strip('"\'')
-                        sc, page_text = await click(chat_id, target)
-                        if want_screenshot: screenshot = sc
-                        user_text = f"{user_text}\n\n[After clicking '{target}']:\n{page_text[:2000]}"
-                        break
-            elif any(w in text_lower for w in ["закрой", "close", "стоп браузер", "хватит"]):
-                await close_session(chat_id)
-                user_text = f"{user_text}\n\n[Browser closed]"
-
         response, files = await ask_rick(chat_id, user_text)
     typing.cancel()
-
-    if screenshot:
-        try:
-            await context.bot.send_photo(chat_id=msg.chat_id, photo=screenshot, caption="🖥")
-        except Exception as e:
-            logger.warning(f"Screenshot send error: {e}")
 
     await send_response(msg, response, files, context)
 
