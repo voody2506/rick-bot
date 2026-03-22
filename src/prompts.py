@@ -98,6 +98,31 @@ DECISION_PROMPT = """Контекст группового чата:
 
 Ответ: только ДА или НЕТ"""
 
+SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences. Focus on: what was discussed, what the user wanted, mood/tone. Write in the user's language.
+
+Conversation:
+{conversation}
+
+Summary:"""
+
+PROFILE_PROMPT = """Based on this conversation, update the user profile. Return ONLY valid JSON.
+
+Current profile:
+{current_profile}
+
+Recent conversation:
+{conversation}
+
+Return updated JSON with these fields (keep existing values if no new info):
+{{
+  "name": "user's name or null",
+  "language": "primary language",
+  "interests": ["list of interests"],
+  "style": "how they like to communicate (short/detailed, formal/casual)",
+  "occupation": "job or role or null",
+  "notes": "anything else important"
+}}"""
+
 GROUP_RESPONSE_PROMPT = """Контекст чата:
 {context}
 

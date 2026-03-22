@@ -4,6 +4,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import json
 import os
 import re
 import time
@@ -15,7 +16,7 @@ from collections import defaultdict, deque
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 
-from src.config import BOT_TOKEN, OWNER_ID, MAX_FACTS, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
+from src.config import BOT_TOKEN, OWNER_ID, MAX_HISTORY, MAX_FACTS, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
 
 # ─── RATE LIMITING ───────────────────────────────────────
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -33,10 +34,12 @@ def is_rate_limited(user_id: int) -> bool:
         return True
     timestamps.append(now)
     return False
-from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT
+from datetime import datetime
+from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT, SUMMARIZE_PROMPT, PROFILE_PROMPT
 from src.memory import (chat_histories, group_context, group_members, group_recent_photos,
                         PHOTO_QUESTION_KEYWORDS, init_chat, save_history,
-                        load_facts, save_facts)
+                        load_facts, save_facts, load_summaries, save_summary,
+                        load_profile, save_profile)
 from src.claude import run_claude
 from src.media import (transcribe_audio, web_search,
                        find_created_files, find_new_workdir_files, cleanup_work_dir)
@@ -82,19 +85,41 @@ async def extract_and_save_facts(chat_id, user_msg, rick_response):
 def build_prompt(chat_id, user_message):
     history = list(chat_histories[chat_id])
     facts = load_facts(chat_id)
+    summaries = load_summaries(chat_id)
+    profile = load_profile(chat_id)
     prompt = RICK_SYSTEM + "\n\n"
+
+    # Time awareness
+    now = datetime.now()
+    prompt += f"Current date/time: {now.strftime('%Y-%m-%d %H:%M, %A')}\n\n"
+
+    # User profile
+    if profile:
+        prompt += "User profile:\n"
+        for k, v in profile.items():
+            if v and v != "null":
+                prompt += f"- {k}: {v}\n"
+        prompt += "\n"
+
+    # Past conversation summaries
+    if summaries:
+        prompt += "Past conversations:\n"
+        for s in summaries[-5:]:  # last 5 summaries
+            prompt += f"- [{s.get('date', '?')}]: {s.get('summary', '')}\n"
+        prompt += "\n"
+
     skills = load_skills_for_chat(chat_id)
     if skills:
-        prompt += f"УСТАНОВЛЕННЫЕ SKILLS (инструкции из ClawHub):\n{skills}\n\n"
+        prompt += f"Installed skills:\n{skills}\n\n"
     if facts:
-        prompt += "Факты о пользователе:\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
+        prompt += "Known facts:\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
     if history:
-        prompt += "История:\n"
+        prompt += "Recent conversation:\n"
         for i in range(0, len(history), 2):
-            if i < len(history): prompt += f"Собеседник: {history[i]}\n"
-            if i+1 < len(history): prompt += f"Рик: {history[i+1]}\n"
+            if i < len(history): prompt += f"User: {history[i]}\n"
+            if i+1 < len(history): prompt += f"Rick: {history[i+1]}\n"
         prompt += "\n"
-    prompt += f"Собеседник: {user_message}\nРик:"
+    prompt += f"User: {user_message}\nRick:"
     return prompt
 
 async def ask_rick(chat_id, user_message, image_path=None):
@@ -138,7 +163,59 @@ async def ask_rick(chat_id, user_message, image_path=None):
     save_history(chat_id, chat_histories[chat_id])
     asyncio.create_task(extract_and_save_facts(chat_id, user_message or "[фото]", response))
 
+    # Summarize when history is full — before next truncation loses data
+    if len(chat_histories[chat_id]) >= MAX_HISTORY * 2:
+        asyncio.create_task(summarize_and_update_profile(chat_id))
+
     return response, files
+
+
+async def summarize_and_update_profile(chat_id):
+    """Summarize current conversation and update user profile. Runs in background."""
+    try:
+        history = list(chat_histories[chat_id])
+        if not history:
+            return
+
+        # Build conversation text for summarization
+        conv_lines = []
+        for i in range(0, len(history), 2):
+            if i < len(history): conv_lines.append(f"User: {history[i]}")
+            if i+1 < len(history): conv_lines.append(f"Rick: {history[i+1]}")
+        conv_text = "\n".join(conv_lines)
+
+        # Summarize
+        summary_raw = await run_claude(
+            SUMMARIZE_PROMPT.format(conversation=conv_text), timeout=15)
+        if summary_raw:
+            save_summary(chat_id, {
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "summary": summary_raw.strip()
+            })
+            logger.info(f"Saved conversation summary for chat {chat_id}")
+
+        # Update profile
+        current_profile = load_profile(chat_id)
+        profile_raw = await run_claude(
+            PROFILE_PROMPT.format(
+                current_profile=json.dumps(current_profile, ensure_ascii=False) if current_profile else "{}",
+                conversation=conv_text[-2000:]  # last 2000 chars
+            ), timeout=15)
+        if profile_raw:
+            # Extract JSON from response
+            profile_raw = profile_raw.strip()
+            if profile_raw.startswith("```"):
+                profile_raw = "\n".join(profile_raw.split("\n")[1:])
+            if profile_raw.endswith("```"):
+                profile_raw = "\n".join(profile_raw.split("\n")[:-1])
+            try:
+                new_profile = json.loads(profile_raw.strip())
+                save_profile(chat_id, new_profile)
+                logger.info(f"Updated profile for chat {chat_id}")
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse profile JSON for chat {chat_id}")
+    except Exception as e:
+        logger.error(f"Summarize/profile error: {e}")
 
 # ─── HANDLERS ─────────────────────────────────────────────
 

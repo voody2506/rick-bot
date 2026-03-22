@@ -44,6 +44,39 @@ PHOTO_QUESTION_KEYWORDS = [
     "можешь", "что написано", "прочитай", "переведи", "вычисли", "найди ответ"
 ]
 
+MAX_SUMMARIES = 20  # keep last 20 conversation summaries
+
+
+def load_summaries(chat_id) -> list:
+    path = get_memory_dir(chat_id) / "summaries.json"
+    if path.exists():
+        try: return json.loads(path.read_text())
+        except: pass
+    return []
+
+
+def save_summary(chat_id, summary: dict):
+    """Append a summary and keep only last MAX_SUMMARIES."""
+    summaries = load_summaries(chat_id)
+    summaries.append(summary)
+    summaries = summaries[-MAX_SUMMARIES:]
+    (get_memory_dir(chat_id) / "summaries.json").write_text(
+        json.dumps(summaries, ensure_ascii=False, indent=2))
+
+
+def load_profile(chat_id) -> dict:
+    path = get_memory_dir(chat_id) / "profile.json"
+    if path.exists():
+        try: return json.loads(path.read_text())
+        except: pass
+    return {}
+
+
+def save_profile(chat_id, profile: dict):
+    (get_memory_dir(chat_id) / "profile.json").write_text(
+        json.dumps(profile, ensure_ascii=False, indent=2))
+
+
 def init_chat(chat_id):
     if chat_id not in chat_histories or len(chat_histories[chat_id]) == 0:
         chat_histories[chat_id] = load_history(chat_id)
