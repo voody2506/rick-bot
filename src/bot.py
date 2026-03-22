@@ -485,12 +485,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if emoji:
         await set_reaction(context.bot, chat_id, msg.message_id, emoji)
 
-    # Inject reply context (#7)
-    if msg.reply_to_message and msg.reply_to_message.text and not msg.reply_to_message.photo:
-        quoted = msg.reply_to_message.text[:200]
-        reply_user = msg.reply_to_message.from_user
-        reply_name = reply_user.first_name if reply_user else "Someone"
-        user_text = f"[Replying to {reply_name}: \"{quoted}\"]\n\n{user_text}"
+    # Inject forwarded message content
+    if msg.forward_from_chat or msg.forward_from:
+        fwd_text = msg.text or msg.caption or ""
+        fwd_source = ""
+        if msg.forward_from_chat:
+            fwd_source = msg.forward_from_chat.title or "channel"
+        elif msg.forward_from:
+            fwd_source = msg.forward_from.first_name or "someone"
+        user_text = f"[Forwarded from {fwd_source}]: {fwd_text}"
+
+    # Inject reply context — including forwarded posts in replies
+    if msg.reply_to_message:
+        reply_msg = msg.reply_to_message
+        quoted = ""
+        if reply_msg.text:
+            quoted = reply_msg.text[:500]
+        elif reply_msg.caption:
+            quoted = reply_msg.caption[:500]
+        if reply_msg.forward_from_chat:
+            fwd_source = reply_msg.forward_from_chat.title or "channel"
+            quoted = f"[Forwarded from {fwd_source}]: {quoted}"
+        if quoted and not reply_msg.photo:
+            reply_user = reply_msg.from_user
+            reply_name = reply_user.first_name if reply_user else "Someone"
+            user_text = f"[Replying to {reply_name}: \"{quoted}\"]\n\n{user_text}"
 
     if msg.chat.type in ("group", "supergroup"):
         # Сохраняем участника
