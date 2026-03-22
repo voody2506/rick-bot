@@ -103,7 +103,7 @@ async def ask_rick(chat_id, user_message, image_path=None):
             response = await run_claude(build_prompt(chat_id, augmented_message), 120)
 
     if not response:
-        return "ырп ...не слышу. Повтори, Морти.", []
+        return "*burp* ...can't hear you. Say again, Morty.", []
 
     # Объединяем regex-файлы и новые файлы из WORK_DIR
     files = list(set(find_created_files(response) + find_new_workdir_files(start_time)))
@@ -144,11 +144,11 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     is_group = update.effective_chat.type in ["group", "supergroup"]
-    username = user.first_name if user else "Морти"
+    username = user.first_name if user else "Morty"
 
     if user and is_group:
         group_members[chat_id][user.id] = {
-            "name": user.first_name or user.username or "Морти",
+            "name": user.first_name or user.username or "Morty",
             "username": user.username
         }
 
@@ -174,7 +174,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = await transcribe_audio(ogg_path)
 
         if not text:
-            await msg.reply_text("Ырп... ничего не разобрал, Морти.")
+            await msg.reply_text("Burp... couldn't make that out, Morty.")
             return
 
         logger.info(f"Voice transcribed: {text[:100]}")
@@ -186,7 +186,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if response:
                 group_context[chat_id].append(f"Рик: {response[:100]}")
             else:
-                response = "ырп Что ты там сказал?"
+                response = "burp What did you say?"
         else:
             init_chat(chat_id)
             response, files = await ask_rick(chat_id, f"[голосовое сообщение]: {text}")
@@ -206,11 +206,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     is_group = update.effective_chat.type in ["group", "supergroup"]
-    username = user.first_name if user else "Морти"
+    username = user.first_name if user else "Morty"
 
     if user and is_group:
         group_members[chat_id][user.id] = {
-            "name": user.first_name or user.username or "Морти",
+            "name": user.first_name or user.username or "Morty",
             "username": user.username
         }
 
@@ -227,7 +227,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_context[chat_id].append(f"{username}: [прислал файл: {filename}]")
         response = await build_group_response(chat_id, username, user_message)
         if not response:
-            response = "Ырп, файл прислал. Интересно."
+            response = "Burp, sent a file. Interesting."
         group_context[chat_id].append(f"Рик: {response[:100]}")
         await msg.reply_text(response)
     else:
@@ -249,7 +249,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user and chat_type in ("group", "supergroup"):
         group_members[chat_id][user.id] = {
-            "name": user.first_name or user.username or "Морти",
+            "name": user.first_name or user.username or "Morty",
             "username": user.username
         }
 
@@ -264,7 +264,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             file = await context.bot.get_file(photo.file_id)
             await file.download_to_drive(image_path)
         except Exception as e:
-            await msg.reply_text(f"ырп Не смог скачать фото: {e}")
+            await msg.reply_text(f"burp Couldn't download the photo: {e}")
             return
         group_recent_photos[chat_id] = {"path": image_path, "ts": time.time()}
 
@@ -345,7 +345,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Сохраняем участника
         if user:
             group_members[chat_id][user.id] = {
-                "name": user.first_name or user.username or "Морти",
+                "name": user.first_name or user.username or "Morty",
                 "username": user.username
             }
         # Сохраняем все сообщения в буфер контекста группы
@@ -472,7 +472,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 del group_recent_photos[chat_id]
             except Exception:
                 pass
-            response, files = group_response or "ырп Не вижу фото, Морти", []
+            response, files = group_response or "burp Can't see the photo, Morty", []
             group_context[chat_id].append(f"Рик: {response[:100]}")
         else:
             group_response = await build_group_response(chat_id, username, user_text)
@@ -511,17 +511,17 @@ async def forget_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_histories[chat_id].clear()
     save_history(chat_id, chat_histories[chat_id])
     save_facts(chat_id, [])
-    await update.message.reply_text("ырп Кто ты? Начинаем с нуля.")
+    await update.message.reply_text("burp Who are you? Starting from scratch.")
 
 async def skill_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /skill search|install|list"""
     args = context.args or []
     if not args:
         await update.message.reply_text(
-            "Использование:\n"
-            "  `/skill search <запрос>` — поиск на ClawHub\n"
-            "  `/skill install <slug>` — установить skill\n"
-            "  `/skill list` — список установленных",
+            "Usage:\n"
+            "  `/skill search <query>` — search ClawHub\n"
+            "  `/skill install <slug>` — install a skill\n"
+            "  `/skill list` — list installed skills",
             parse_mode="Markdown"
         )
         return
@@ -533,18 +533,18 @@ async def skill_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if subcmd == "list":
         chat_skills_dir = SKILLS_DIR / str(chat_id)
         if not chat_skills_dir.exists():
-            await update.message.reply_text("Нет установленных skills. Попробуй `/skill search <что-нибудь>`", parse_mode="Markdown")
+            await update.message.reply_text("No skills installed. Try `/skill search <something>`", parse_mode="Markdown")
             return
         installed = [d.name for d in sorted(chat_skills_dir.iterdir()) if d.is_dir() and (d / "SKILL.md").exists()]
         if not installed:
-            await update.message.reply_text("Нет установленных skills.")
+            await update.message.reply_text("No skills installed.")
             return
         msg = "📦 Установленные skills:\n" + "\n".join(f"• `{s}`" for s in installed)
         await update.message.reply_text(msg, parse_mode="Markdown")
 
     elif subcmd == "search":
         if not rest:
-            await update.message.reply_text("Укажи запрос: `/skill search <что ищешь>`", parse_mode="Markdown")
+            await update.message.reply_text("Specify a query: `/skill search <query>`", parse_mode="Markdown")
             return
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         result = await search_clawhub(rest)
@@ -552,17 +552,17 @@ async def skill_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif subcmd == "install":
         if update.effective_user.id != OWNER_ID:
-            await update.message.reply_text("Морти, это не для тебя.")
+            await update.message.reply_text("This isn't for you, Morty.")
             return
         if not rest:
-            await update.message.reply_text("Укажи slug: `/skill install <slug>`", parse_mode="Markdown")
+            await update.message.reply_text("Specify slug: `/skill install <slug>`", parse_mode="Markdown")
             return
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         result = await install_clawhub_skill(rest, chat_id)
         await update.message.reply_text(result, parse_mode="Markdown")
 
     else:
-        await update.message.reply_text(f"Неизвестная подкоманда «{subcmd}». Используй: search, install, list")
+        await update.message.reply_text(f"Unknown subcommand '{subcmd}'. Use: search, install, list")
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/schedule list | cancel <id>"""
@@ -571,9 +571,9 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not args:
         await update.message.reply_text(
-            "Использование:\n"
-            "  `/schedule list` — задачи этого чата\n"
-            "  `/schedule cancel <id>` — отменить задачу",
+            "Usage:\n"
+            "  `/schedule list` — tasks for this chat\n"
+            "  `/schedule cancel <id>` — cancel a task",
             parse_mode="Markdown"
         )
         return
@@ -586,7 +586,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         jobs = [j for j in scheduler.get_jobs()
                 if j.id.startswith(prefix_once) or j.id.startswith(prefix_repeat)]
         if not jobs:
-            await update.message.reply_text("Нет активных задач для этого чата.")
+            await update.message.reply_text("No active tasks for this chat.")
             return
         lines = ["📅 Задачи:"]
         for j in jobs:
@@ -596,22 +596,22 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif subcmd == "cancel":
         if len(args) < 2:
-            await update.message.reply_text("Укажи ID: `/schedule cancel <id>`", parse_mode="Markdown")
+            await update.message.reply_text("Specify ID: `/schedule cancel <id>`", parse_mode="Markdown")
             return
         job_id = args[1]
         prefix_once = f"once_{chat_id}_"
         prefix_repeat = f"repeat_{chat_id}_"
         if not (job_id.startswith(prefix_once) or job_id.startswith(prefix_repeat)):
-            await update.message.reply_text("Это не твоя задача, Морти.")
+            await update.message.reply_text("That's not your task, Morty.")
             return
         try:
             scheduler.remove_job(job_id)
-            await update.message.reply_text(f"Отменено. `{job_id}`", parse_mode="Markdown")
+            await update.message.reply_text(f"Cancelled. `{job_id}`", parse_mode="Markdown")
         except Exception:
-            await update.message.reply_text(f"Задача `{job_id}` не найдена.", parse_mode="Markdown")
+            await update.message.reply_text(f"Task `{job_id}` not found.", parse_mode="Markdown")
 
     else:
-        await update.message.reply_text(f"Неизвестная команда «{subcmd}». Используй: list, cancel")
+        await update.message.reply_text(f"Unknown command '{subcmd}'. Use: list, cancel")
 
 # ─── APP INIT ─────────────────────────────────────────────
 

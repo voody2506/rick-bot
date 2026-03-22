@@ -41,14 +41,14 @@ async def search_clawhub(query: str) -> str:
         data = await loop.run_in_executor(None, _search)
         results = data.get("results", [])
         if not results:
-            return f"Ничего не найдено по запросу «{query}»"
-        lines = [f"🔍 Найдено {len(results)} skills по «{query}»:\n"]
+            return f"Nothing found for '{query}'"
+        lines = [f"🔍 Found {len(results)} skills for '{query}':\n"]
         for r in results[:8]:
             lines.append(f"• `{r['slug']}` — _{r['displayName']}_\n  {r.get('summary','')[:120]}")
-        lines.append("\nУстановить: `/skill install <slug>`")
+        lines.append("\nInstall: `/skill install <slug>`")
         return "\n".join(lines)
     except Exception as e:
-        return f"Ошибка поиска ClawHub: {e}"
+        return f"ClawHub search error: {e}"
 
 async def install_clawhub_skill(slug: str, chat_id: int) -> str:
     """Скачивает и устанавливает skill из ClawHub (ZIP → SKILLS_DIR/<chat_id>/<slug>/)"""
@@ -61,7 +61,7 @@ async def install_clawhub_skill(slug: str, chat_id: int) -> str:
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, _download)
         if data[:2] != b'PK':
-            return f"Ошибка: сервер вернул не ZIP (slug «{slug}» существует?)"
+            return f"Error: server returned non-ZIP (does slug '{slug}' exist?)"
         dest = SKILLS_DIR / str(chat_id) / slug
         dest.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -72,9 +72,9 @@ async def install_clawhub_skill(slug: str, chat_id: int) -> str:
         if skill_md.exists():
             first_lines = skill_md.read_text(encoding="utf-8", errors="replace").split("\n")[:5]
             desc = " ".join(l for l in first_lines if l and not l.startswith("---")).strip()[:120]
-        return f"✅ Skill `{slug}` установлен в {dest}\n{len(files)} файлов.\n{desc}"
+        return f"✅ Skill `{slug}` installed to {dest}\n{len(files)} files.\n{desc}"
     except Exception as e:
-        return f"Ошибка установки «{slug}»: {e}"
+        return f"Installation error '{slug}': {e}"
 
 # ─── EXTERNAL SERVICES AUTO-FLOW ──────────────────────────
 
@@ -121,7 +121,7 @@ async def handle_service_request(update, context, user_id: int, chat_id: int, se
     # Проверить / установить skill
     skill_dir = SKILLS_DIR / str(chat_id) / config["clawhub_slug"]
     if not skill_dir.exists():
-        await update.message.reply_text(f"ырп, сейчас поставлю skill для {service}...")
+        await update.message.reply_text(f"burp, installing skill for {service}...")
         await install_clawhub_skill(config["clawhub_slug"], chat_id)
 
     # Проверить токен
@@ -130,44 +130,44 @@ async def handle_service_request(update, context, user_id: int, chat_id: int, se
         if config.get("oauth_url"):
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = [[InlineKeyboardButton(
-                f"Авторизоваться в {service.title()}", url=config["oauth_url"]
+                f"Authorize {service.title()}", url=config["oauth_url"]
             )]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text(
-                f"Морти, чтобы работать с {service.title()} мне нужен доступ. "
-                f"Жми кнопку, дай разрешение, потом повтори запрос.",
+                f"Morty, I need access to work with {service.title()}. "
+                "Hit the button, grant permission, then try again.",
                 reply_markup=reply_markup
             )
             return True
         # Нет OAuth URL — даём конкретную инструкцию по подключению
         if service == "notion":
             await update.message.reply_text(
-                "ырп Морти, у меня нет телепатического доступа к твоему Notion. "
-                "Сделай так: зайди на notion.so/my-integrations, создай новую интеграцию, "
-                "скопируй Internal Integration Token и скинь мне командой:\n"
-                "/notion_token <твой_токен>\n"
-                "Это займёт 2 минуты. Даже ты справишься."
+                "burp Morty, I don't have telepathic access to your Notion. "
+                "Here's what to do: go to notion.so/my-integrations, create a new integration, "
+                "copy the Internal Integration Token and send it to me with:\n"
+                "/notion_token <your_token>\n"
+                "It takes 2 minutes. Even you can handle it."
             )
             return True
         elif service == "gmail":
             await update.message.reply_text(
-                "ырп Gmail пока не подключён, Морти. "
-                "Скажи владельцу бота настроить Gmail API — нужны client_id и client_secret. "
-                "Без этого я не могу лезть в чужую почту. Это не каприз, это OAuth."
+                "burp Gmail isn't connected yet, Morty. "
+                "Tell the bot owner to set up the Gmail API — client_id and client_secret are needed. "
+                "Without that I can't dig through someone else's inbox. It's not a quirk, it's OAuth."
             )
             return True
         elif service == "github":
             await update.message.reply_text(
-                "ырп GitHub не подключён. Создай токен на github.com/settings/tokens, "
-                "выбери нужные права (repo, read:user) и скинь мне:\n"
-                "/github_token <твой_токен>\n"
-                "Дальше я разберусь сам."
+                "burp GitHub isn't connected. Create a token at github.com/settings/tokens, "
+                "select the required scopes (repo, read:user) and send it to me:\n"
+                "/github_token <your_token>\n"
+                "I'll take it from there."
             )
             return True
         elif service == "google_drive":
             await update.message.reply_text(
-                "ырп Google Drive тоже не настроен, Морти. "
-                "Нужен OAuth от Google — скажи владельцу бота добавить credentials."
+                "burp Google Drive isn't set up either, Morty. "
+                "Google OAuth is required — tell the bot owner to add credentials."
             )
             return True
         return False

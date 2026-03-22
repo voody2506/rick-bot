@@ -79,7 +79,7 @@ async def handle_schedule_request(chat_id: int, text: str) -> str:
                 args=[chat_id, data["task"]],
                 id=job_id
             )
-            return f"Ладно, Морти, поставил напоминание — {data['human_schedule']}. Не облажайся."
+            return f"Fine, Morty, reminder set — {data['human_schedule']}. Don't screw it up."
         else:
             trigger = CronTrigger.from_crontab(data["cron"])
             job_id = f"repeat_{job_id_base}"
@@ -88,10 +88,10 @@ async def handle_schedule_request(chat_id: int, text: str) -> str:
                 args=[chat_id, data["task"]],
                 id=job_id
             )
-            return f"ырп Поставил: {data['task']} — {data['human_schedule']}. Не мешай."
+            return f"burp Scheduled: {data['task']} — {data['human_schedule']}. Don't bother me."
     except Exception as e:
         logger.error(f"Schedule parse error: {e}")
-        return "Не смог распарсить расписание. Скажи точнее когда и что делать."
+        return "Couldn't parse the schedule. Be more specific about when and what to do."
 
 async def send_scheduled_message(chat_id: int, task: str):
     """Выполняет запланированную задачу — вызывается APScheduler"""
