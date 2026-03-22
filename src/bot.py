@@ -51,7 +51,7 @@ from src.tts import generate_voice
 from src.memes import maybe_send_gif
 from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
-from src.browser import browse_url
+from src.browser import navigate, click, scroll, has_active_session, close_session
 
 import src.scheduler
 
@@ -634,21 +634,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 response, files = await ask_rick(chat_id, user_text)
     else:
-        # Browse URL if message contains one
-        url_match = re.search(r'https?://[^\s]+', user_text)
+        # Browser actions
         screenshot = None
+        url_match = re.search(r'https?://[^\s]+', user_text)
+        text_lower = user_text.lower()
+
         if url_match:
+            # Open URL
             url = url_match.group(0)
             logger.info(f"Browsing URL: {url}")
-            screenshot, page_text = await browse_url(url)
+            screenshot, page_text = await navigate(chat_id, url)
             if page_text:
                 user_text = f"{user_text}\n\n[Page content from {url}]:\n{page_text[:2000]}"
+        elif has_active_session(chat_id):
+            # Browser session active — detect actions
+            if any(w in text_lower for w in ["скролл", "scroll", "ниже", "дальше", "вниз"]):
+                screenshot, page_text = await scroll(chat_id, "down")
+                user_text = f"{user_text}\n\n[After scrolling]:\n{page_text[:2000]}"
+            elif any(w in text_lower for w in ["наверх", "вверх", "scroll up"]):
+                screenshot, page_text = await scroll(chat_id, "up")
+                user_text = f"{user_text}\n\n[After scrolling up]:\n{page_text[:2000]}"
+            elif any(w in text_lower for w in ["нажми", "кликни", "click", "нажать", "перейди"]):
+                # Extract target — everything after the keyword
+                for kw in ["нажми на ", "кликни на ", "click on ", "click ", "нажми ", "кликни ", "перейди на ", "перейди в "]:
+                    if kw in text_lower:
+                        target = user_text[text_lower.index(kw) + len(kw):].strip().strip('"\'')
+                        screenshot, page_text = await click(chat_id, target)
+                        user_text = f"{user_text}\n\n[After clicking '{target}']:\n{page_text[:2000]}"
+                        break
+            elif any(w in text_lower for w in ["закрой", "close", "стоп браузер", "хватит"]):
+                await close_session(chat_id)
+                user_text = f"{user_text}\n\n[Browser closed]"
+
         response, files = await ask_rick(chat_id, user_text)
     typing.cancel()
 
     if screenshot:
         try:
-            await context.bot.send_photo(chat_id=msg.chat_id, photo=screenshot, caption="🖥 Screenshot")
+            await context.bot.send_photo(chat_id=msg.chat_id, photo=screenshot, caption="🖥")
         except Exception as e:
             logger.warning(f"Screenshot send error: {e}")
 
