@@ -50,6 +50,7 @@ from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_ski
 from src.tts import generate_voice
 from src.memes import maybe_get_meme
 from src.reactions import pick_reaction, set_reaction
+from src.stickers import pick_sticker
 
 import src.scheduler
 
@@ -234,7 +235,7 @@ async def send_response(msg, response, files, context):
     else:
         await msg.reply_text(response)
 
-    # Meme — occasionally send a relevant GIF
+    # Meme GIF or sticker — occasionally send one
     meme_result = await maybe_get_meme(response)
     if meme_result:
         meme_buf, mood = meme_result
@@ -242,6 +243,13 @@ async def send_response(msg, response, files, context):
             await context.bot.send_animation(chat_id=msg.chat_id, animation=meme_buf)
         except Exception as e:
             logger.warning(f"Meme send error: {e}")
+    else:
+        sticker_id = pick_sticker(response)
+        if sticker_id:
+            try:
+                await context.bot.send_sticker(chat_id=msg.chat_id, sticker=sticker_id)
+            except Exception as e:
+                logger.warning(f"Sticker send error: {e}")
 
     if not files and any(kw in response.lower() for kw in FILE_INTENT_KEYWORDS):
         await msg.reply_text("📎 [File sending in development]")
