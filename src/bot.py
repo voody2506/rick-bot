@@ -50,6 +50,7 @@ from src.memes import maybe_send_gif
 from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
 from src.scenario import get_scenario_for_prompt, generate_daily_scenario, load_scenario
+from src.mood import update_mood, get_mood_modifier
 
 import src.scheduler
 
@@ -98,6 +99,11 @@ def build_prompt(chat_id, user_message):
     # Daily scenario — global mood and storyline
     prompt += get_scenario_for_prompt() + "\n"
 
+    # Dynamic mood from interactions
+    mood_mod = get_mood_modifier()
+    if mood_mod:
+        prompt += f"CURRENT MOOD SHIFT: {mood_mod}\n\n"
+
     # User profile
     if profile:
         prompt += "User profile:\n"
@@ -130,6 +136,7 @@ def build_prompt(chat_id, user_message):
 async def ask_rick(chat_id, user_message, image_path=None):
     init_chat(chat_id)
     start_time = time.time()
+    update_mood(user_message or "")
 
     if image_path:
         prompt = user_message or "Что на этом фото? Опиши по-рикски."

@@ -3,6 +3,7 @@ from src.memory import group_context, group_members, load_facts
 from src.prompts import GROUP_SYSTEM
 from src.claude import run_claude
 from src.scenario import get_scenario_for_prompt
+from src.mood import get_mood_modifier, update_mood
 
 SKIP_TOKEN = "SKIP"
 
@@ -28,7 +29,11 @@ async def maybe_respond_in_group(chat_id, username, user_message):
         system += "\n\nKnown facts about participants:\n" + "\n".join(f"- {f}" for f in facts[:10])
     members_list = format_members_for_prompt(chat_id)
 
+    update_mood(user_message)
     scenario = get_scenario_for_prompt()
+    mood_mod = get_mood_modifier()
+    if mood_mod:
+        scenario += f"\nCURRENT MOOD SHIFT: {mood_mod}\n"
     response = await run_claude(
         GROUP_COMBINED_PROMPT.format(
             system=system, scenario=scenario, context=context_str,
