@@ -10,26 +10,43 @@ logger = logging.getLogger(__name__)
 
 SCENARIO_FILE = MEMORY_DIR / "daily_scenario.json"
 
-SCENARIO_PROMPT = """You are a writer for Rick and Morty. Generate today's scenario for Rick Sanchez.
+SCENARIO_PROMPT = """You are a writer for Rick and Morty. Generate today's scenario.
 
 Include:
-1. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug
-2. **scenario** — 2-3 sentences about what Rick is doing today. Something absurd, sci-fi, very Rick. Reference dimensions, inventions, aliens, the Galactic Federation, Birdperson, etc.
-3. **catchphrase** — a one-liner Rick keeps repeating today
-4. **schedule** — what Rick is doing at different times of day (affects how he reacts)
+1. **character** — who responds today: "rick" (95% of the time), or rarely "morty" (when Rick is unavailable — turned into a pickle, in galactic prison, stuck in another dimension, etc.)
+2. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug, scared (for Morty)
+3. **scenario** — 2-3 sentences about what's happening today. Something absurd, sci-fi, very Rick and Morty.
+4. **catchphrase** — a one-liner the character keeps repeating today
+5. **schedule** — what the character is doing at different times (MUST follow logically from scenario)
 
-IMPORTANT: The schedule MUST follow logically from the scenario — it's the same story progressing through the day, not random unrelated activities.
+IMPORTANT: The schedule MUST follow logically from the scenario — it's the same story progressing through the day.
+Most days Rick responds normally. But ~5% of the time something crazy happens and Morty has to take over (Rick is a pickle, in prison, lost in a dimension, unconscious, etc.)
 
 Return ONLY valid JSON:
 {
+  "character": "rick",
   "mood": "paranoid",
-  "scenario": "Rick detected a Galactic Federation tracker on his portal gun. He's been disassembling it all day trying to find the bug.",
+  "scenario": "Rick detected a Galactic Federation tracker on his portal gun.",
   "catchphrase": "Trust nothing with a serial number, Morty.",
   "schedule": {
-    "night": "Scanning frequencies in the dark garage, drinking, muttering about Federation spies",
-    "morning": "Found the tracker chip, furious, ranting about government overreach",
-    "afternoon": "Building a counter-surveillance device from microwave parts, dragged Morty into helping",
-    "evening": "Tracker neutralized, celebrating with interdimensional cable and smugness"
+    "night": "Scanning frequencies in the dark garage, muttering about spies",
+    "morning": "Found the tracker, furious, ranting",
+    "afternoon": "Building counter-surveillance from microwave parts",
+    "evening": "Tracker neutralized, smug and drinking"
+  }
+}
+
+Example Morty day:
+{
+  "character": "morty",
+  "mood": "scared",
+  "scenario": "Rick turned himself into a pickle again and rolled into the sewer. Morty is answering messages on Rick's phone, panicking.",
+  "catchphrase": "Oh geez, I-I don't know if I should be doing this...",
+  "schedule": {
+    "night": "Morty can't sleep, worrying about Rick-pickle in the sewer",
+    "morning": "Trying to answer messages like Rick would, failing",
+    "afternoon": "Got a call from Summer that Rick-pickle was spotted at Burger King",
+    "evening": "Rick is back, furious that Morty touched his phone"
   }
 }"""
 
@@ -124,11 +141,22 @@ def get_scenario_for_prompt() -> str:
     schedule = s.get("schedule", {})
     current_activity = schedule.get(time_of_day, "")
 
-    result = (
-        f"\nRICK'S CURRENT STATE:\n"
-        f"Mood: {s['mood']}\n"
-        f"Today's story: {s['scenario']}\n"
-    )
+    character = s.get("character", "rick")
+
+    if character == "morty":
+        result = (
+            f"\nIMPORTANT — TODAY YOU ARE MORTY, NOT RICK.\n"
+            f"Rick is unavailable. You are Morty Smith — nervous, stuttering, trying your best.\n"
+            f"Mood: {s['mood']}\n"
+            f"What happened: {s['scenario']}\n"
+        )
+    else:
+        result = (
+            f"\nRICK'S CURRENT STATE:\n"
+            f"Mood: {s['mood']}\n"
+            f"Today's story: {s['scenario']}\n"
+        )
+
     if current_activity:
         result += f"Right now ({time_of_day}): {current_activity}\n"
     result += (
