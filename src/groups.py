@@ -5,26 +5,27 @@ from src.claude import run_claude
 
 
 async def should_respond_in_group(text: str, bot_username: str = "", reply_to_bot: bool = False, chat_id: int = None, username: str = None) -> bool:
-    """Rick responds in group: direct mention, reply, or Claude decides."""
-    if reply_to_bot:
-        return True
+    """Claude decides whether Rick should respond in group."""
+    from src.prompts import DECISION_PROMPT
+    context_lines = list(group_context.get(chat_id, []))
+    context_str = "\n".join(context_lines[-6:]) if context_lines else "(no context)"
 
+    extra = ""
+    if reply_to_bot:
+        extra = " (This is a direct reply to Rick)"
     text_lower = text.lower()
     mentions = ["рик", "rick", "рика", "рику", "риком"]
     if bot_username:
         mentions.append(f"@{bot_username.lower()}")
     if any(m in text_lower for m in mentions):
-        return True
+        extra = " (Rick was mentioned by name)"
 
-    if len(text.strip()) < 5:
-        return False
-
-    # Let Claude decide
-    from src.prompts import DECISION_PROMPT
-    context_lines = list(group_context.get(chat_id, []))
-    context_str = "\n".join(context_lines[-6:]) if context_lines else "(no context)"
     decision = await run_claude(
-        DECISION_PROMPT.format(context=context_str, username=username or "Someone", message=text[:400]),
+        DECISION_PROMPT.format(
+            context=context_str,
+            username=username or "Someone",
+            message=text[:400] + extra
+        ),
         timeout=10
     )
     return "ДА" in (decision or "").upper() or "YES" in (decision or "").upper()
