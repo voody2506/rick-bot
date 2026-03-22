@@ -51,6 +51,7 @@ from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
 from src.scenario import get_scenario_for_prompt, generate_daily_scenario, load_scenario
 from src.mood import update_mood, get_mood_modifier
+from src.news import load_news_config, save_news_config, send_daily_news
 
 import src.scheduler
 
@@ -609,6 +610,63 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ─── COMMANDS ─────────────────────────────────────────────
 
+async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/news HH:MM [topic] — schedule daily news, /news off — disable, /news now — send now"""
+    args = context.args or []
+    chat_id = str(update.effective_chat.id)
+    config = load_news_config()
+
+    if not args:
+        current = config.get(chat_id)
+        if current:
+            await send_text(update.message, f"News: daily at {current['time']}, topic: {current.get('topic', 'not set')}\nUse `/news off` to disable.")
+        else:
+            await send_text(update.message, "Usage:\n`/news 14:30 AI startups` — daily news at 14:30 about AI startups\n`/news now quantum physics` — send now\n`/news off` — disable")
+        return
+
+    if args[0] == "off":
+        config.pop(chat_id, None)
+        save_news_config(config)
+        # Remove scheduler job
+        try: scheduler.remove_job(f"news_{chat_id}")
+        except: pass
+        await send_text(update.message, "Daily news disabled.")
+        return
+
+    if args[0] == "now":
+        topic = " ".join(args[1:]) if len(args) > 1 else config.get(chat_id, {}).get("topic", "")
+        if not topic:
+            await send_text(update.message, "Specify topic: `/news now AI startups`")
+            return
+        await send_daily_news(context.bot, int(chat_id), topic)
+        return
+
+    # Parse time HH:MM
+    time_str = args[0]
+    try:
+        hour, minute = map(int, time_str.split(":"))
+        assert 0 <= hour <= 23 and 0 <= minute <= 59
+    except:
+        await send_text(update.message, "Wrong format. Use: `/news 14:30`")
+        return
+
+    if len(args) < 2:
+        await send_text(update.message, "Specify topic: `/news 14:30 AI startups`")
+        return
+    topic = " ".join(args[1:])
+    config[chat_id] = {"time": time_str, "topic": topic}
+    save_news_config(config)
+
+    # Add scheduler job
+    from apscheduler.triggers.cron import CronTrigger
+    scheduler.add_job(
+        send_daily_news, CronTrigger(hour=hour, minute=minute),
+        args=[context.bot, int(chat_id), topic],
+        id=f"news_{chat_id}", replace_existing=True
+    )
+    await send_text(update.message, f"Daily news at {time_str}, topic: {topic}")
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     chat_histories[chat_id].clear()
@@ -750,6 +808,19 @@ async def post_init(application):
         id="daily_scenario", replace_existing=True
     )
 
+    # Restore news jobs from config
+    news_config = load_news_config()
+    for cid, cfg in news_config.items():
+        try:
+            h, m = map(int, cfg["time"].split(":"))
+            scheduler.add_job(
+                send_daily_news, CronTrigger(hour=h, minute=m),
+                args=[application.bot, int(cid), cfg.get("topic", "science technology AI")],
+                id=f"news_{cid}", replace_existing=True
+            )
+        except Exception:
+            pass
+
     me = await application.bot.get_me()
     logger.info(f"@{me.username} — Rick v10.1 online (scheduler started, daily scenario)")
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -765,6 +836,7 @@ def main():
     app.add_handler(CommandHandler("reset", reset_command))
     app.add_handler(CommandHandler("forget", forget_command))
     app.add_handler(CommandHandler("skill", skill_command))
+    app.add_handler(CommandHandler("news", news_command))
     app.add_handler(CommandHandler("schedule", schedule_command))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
