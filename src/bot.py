@@ -43,8 +43,7 @@ from src.media import (transcribe_audio, web_search,
 from src.groups import should_respond_in_group, build_group_response
 from src.parallel import try_parallel
 from src.scheduler import scheduler, is_schedule_request, handle_schedule_request
-from src.skills import (load_skills_for_chat, search_clawhub, install_clawhub_skill,
-                        detect_service, handle_service_request)
+from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
 
 import src.scheduler
 
@@ -446,12 +445,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(result, parse_mode="Markdown")
         return
 
-    # Авто-флоу внешних сервисов
-    service = detect_service(user_text)
-    if service:
-        handled = await handle_service_request(update, context, user.id, chat_id, service, user_text)
-        if handled:
-            return
+    # External services — no auto-detection, let Rick handle naturally via Claude
 
     # Проверяем: пользователь отвечает на фото-сообщение?
     reply_photo_path = None
