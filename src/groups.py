@@ -7,33 +7,17 @@ from src.claude import run_claude
 
 
 def should_respond_in_group(text: str, bot_username: str = "", reply_to_bot: bool = False, chat_id: int = None, username: str = None) -> bool:
-    """Rick отвечает в группе ТОЛЬКО если к нему обращаются, очень релевантно, или изредка сам."""
-    text_lower = text.lower()
-
-    # 0. Прямой ответ боту — всегда отвечаем
+    """Rick responds in group: direct mention, reply, or random chance."""
     if reply_to_bot:
         return True
 
-    # 1. Прямое обращение по имени
-    direct_mentions = ["рик", "rick", "@rickbot", "рика", "рику", "риком"]
-    if any(m in text_lower for m in direct_mentions):
+    text_lower = text.lower()
+    mentions = ["рик", "rick", "рика", "рику", "риком"]
+    if bot_username:
+        mentions.append(f"@{bot_username.lower()}")
+    if any(m in text_lower for m in mentions):
         return True
 
-    # 2. Вопрос + тема Рика
-    is_question = (text.strip().endswith("?") or
-                   any(w in text_lower for w in ["как ", "что ", "почему ", "зачем ", "когда ", "где ", "кто "]))
-    rick_topics = ["наука", "физика", "химия", "технологи", "портал", "вселен",
-                   "робот", "искусствен", "программ", "код", "алгоритм", "квант",
-                   "плазм", "нейрон", "днк", "геном", "ии ", "ai "]
-    if is_question and any(t in text_lower for t in rick_topics):
-        return True
-
-    # 3. Команды боту
-    bot_commands = ["найди skill", "установи скилл", "поищи скил", "напомни", "remind", "/skill"]
-    if any(c in text_lower for c in bot_commands):
-        return True
-
-    # 4. Рик изредка вмешивается сам — ~7% шанс, только на содержательные сообщения
     if len(text.strip()) > 20 and random.random() < GROUP_RANDOM_CHANCE:
         return True
 
