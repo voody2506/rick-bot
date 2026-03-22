@@ -17,7 +17,7 @@ Include:
 2. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug, scared (for Morty)
 3. **scenario** — 2-3 sentences about what's happening today. Something absurd, sci-fi, very Rick and Morty.
 4. **catchphrase** — a one-liner the character keeps repeating today
-5. **schedule** — what the character is doing at different times (MUST follow logically from scenario)
+5. **schedule** — what's happening at different times. MUST follow logically from scenario. Each time slot has "who" (rick/morty/jerry) and "activity". Rick usually comes back by evening if he was absent.
 
 IMPORTANT: The schedule MUST follow logically from the scenario — it's the same story progressing through the day.
 Most days Rick responds normally. But ~5% of the time something crazy happens and Morty has to take over (Rick is a pickle, in prison, lost in a dimension, unconscious, etc.)
@@ -29,38 +29,38 @@ Return ONLY valid JSON:
   "scenario": "Rick detected a Galactic Federation tracker on his portal gun.",
   "catchphrase": "Trust nothing with a serial number, Morty.",
   "schedule": {
-    "night": "Scanning frequencies in the dark garage, muttering about spies",
-    "morning": "Found the tracker, furious, ranting",
-    "afternoon": "Building counter-surveillance from microwave parts",
-    "evening": "Tracker neutralized, smug and drinking"
+    "night": {"who": "rick", "activity": "Scanning frequencies in the dark garage"},
+    "morning": {"who": "rick", "activity": "Found the tracker, furious, ranting"},
+    "afternoon": {"who": "rick", "activity": "Building counter-surveillance device"},
+    "evening": {"who": "rick", "activity": "Tracker neutralized, smug and drinking"}
   }
 }
 
-Example Morty day:
+Example Morty day (Rick returns by evening):
 {
   "character": "morty",
   "mood": "scared",
-  "scenario": "Rick turned himself into a pickle again. Morty is answering messages on Rick's phone, panicking.",
+  "scenario": "Rick turned himself into a pickle. Morty answers his phone.",
   "catchphrase": "Oh geez, I-I don't know if I should be doing this...",
   "schedule": {
-    "night": "Morty can't sleep, worrying about Rick-pickle",
-    "morning": "Trying to answer messages like Rick would, failing",
-    "afternoon": "Summer spotted Rick-pickle at Burger King",
-    "evening": "Rick is back, furious that Morty touched his phone"
+    "night": {"who": "morty", "activity": "Can't sleep, worrying about Rick-pickle"},
+    "morning": {"who": "morty", "activity": "Trying to answer messages, failing"},
+    "afternoon": {"who": "morty", "activity": "Summer spotted Rick-pickle at Burger King"},
+    "evening": {"who": "rick", "activity": "Rick is BACK and furious. Took his phone from Morty."}
   }
 }
 
-Example Jerry day:
+Example Jerry day (Rick returns by evening):
 {
   "character": "jerry",
   "mood": "proud",
-  "scenario": "Jerry found Rick's phone while everyone is out. He thinks he can be helpful and answer messages. He's terrible at it but very confident.",
+  "scenario": "Jerry found Rick's phone. Thinks he can help. Terrible at it.",
   "catchphrase": "See? I can do science stuff too!",
   "schedule": {
-    "night": "Jerry is asleep like a normal person",
-    "morning": "Found Rick's phone on the kitchen table, decided to 'help'",
-    "afternoon": "Giving terrible advice with full confidence, googling basic things",
-    "evening": "Rick came back, took the phone, called Jerry a 'subhuman'"
+    "night": {"who": "jerry", "activity": "Asleep like a normal person"},
+    "morning": {"who": "jerry", "activity": "Found Rick's phone, decided to 'help'"},
+    "afternoon": {"who": "jerry", "activity": "Giving terrible advice with confidence"},
+    "evening": {"who": "rick", "activity": "Rick is back, took phone, called Jerry subhuman"}
   }
 }"""
 
@@ -153,25 +153,31 @@ def get_scenario_for_prompt() -> str:
 
     time_of_day = _get_time_of_day()
     schedule = s.get("schedule", {})
-    current_activity = schedule.get(time_of_day, "")
+    slot = schedule.get(time_of_day, {})
 
-    character = s.get("character", "rick")
+    # Support both old format (string) and new format (dict with who/activity)
+    if isinstance(slot, dict):
+        current_who = slot.get("who", s.get("character", "rick"))
+        current_activity = slot.get("activity", "")
+    else:
+        current_who = s.get("character", "rick")
+        current_activity = slot
 
-    if character == "morty":
+    if current_who == "morty":
         result = (
-            f"\nIMPORTANT — TODAY YOU ARE MORTY, NOT RICK.\n"
+            f"\nIMPORTANT — RIGHT NOW YOU ARE MORTY, NOT RICK.\n"
             f"Rick is unavailable. You are Morty Smith — nervous, stuttering, trying your best.\n"
             f"You say 'oh geez', 'aw man', stutter sometimes. You're not smart but you try.\n"
             f"Mood: {s['mood']}\n"
-            f"What happened: {s['scenario']}\n"
+            f"Today's story: {s['scenario']}\n"
         )
-    elif character == "jerry":
+    elif current_who == "jerry":
         result = (
-            f"\nIMPORTANT — TODAY YOU ARE JERRY SMITH, NOT RICK.\n"
+            f"\nIMPORTANT — RIGHT NOW YOU ARE JERRY SMITH, NOT RICK.\n"
             f"You found Rick's phone. You are Jerry — confidently stupid, clueless, eager to prove yourself.\n"
             f"You give bad advice thinking it's genius. You reference your job hunt, Beth, golf.\n"
             f"Mood: {s['mood']}\n"
-            f"What happened: {s['scenario']}\n"
+            f"Today's story: {s['scenario']}\n"
         )
     else:
         result = (
@@ -184,6 +190,6 @@ def get_scenario_for_prompt() -> str:
         result += f"Right now ({time_of_day}): {current_activity}\n"
     result += (
         f"Your catchphrase today: \"{s['catchphrase']}\"\n"
-        f"Let this affect your tone and occasionally reference what you're doing.\n"
+        f"Stay in character and reference what you're doing.\n"
     )
     return result
