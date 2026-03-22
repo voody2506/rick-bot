@@ -41,7 +41,7 @@ from src.memory import (chat_histories, group_context, group_members, group_rece
                         load_profile, save_profile)
 from src.claude import run_claude
 from src.media import (transcribe_audio, find_created_files, find_new_workdir_files, cleanup_work_dir)
-from src.groups import should_respond_in_group, build_group_response
+from src.groups import maybe_respond_in_group
 from src.scheduler import scheduler
 from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
 from src.tts import generate_voice
@@ -141,7 +141,10 @@ async def ask_rick(chat_id, user_message, image_path=None):
     chat_histories[chat_id].append(user_message or "[фото]")
     chat_histories[chat_id].append(response)
     save_history(chat_id, chat_histories[chat_id])
-    asyncio.create_task(extract_and_save_facts(chat_id, user_message or "[фото]", response))
+
+    # Extract facts every 5 messages instead of every message
+    if len(chat_histories[chat_id]) % 10 == 0:  # 10 entries = 5 message pairs
+        asyncio.create_task(extract_and_save_facts(chat_id, user_message or "[фото]", response))
 
     # Summarize when history is full — before next truncation loses data
     if len(chat_histories[chat_id]) >= MAX_HISTORY * 2:
@@ -265,12 +268,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     if is_group:
-        bot_username = context.bot.username or ""
-        reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
-                       and msg.reply_to_message.from_user.username == bot_username)
-        if not await should_respond_in_group(f"[голосовое от {username}]", bot_username, reply_to_bot, chat_id, username):
-            group_context[chat_id].append(f"{username}: [голосовое сообщение]")
-            return
+        pass  # Combined decision handles voice in group
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
@@ -294,11 +292,10 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Process like a text message
         if is_group:
             group_context[chat_id].append(f"{username}: [голосовое]: {text[:100]}")
-            response = await build_group_response(chat_id, username, f"[голосовое]: {text}")
-            if response:
-                group_context[chat_id].append(f"Рик: {response[:100]}")
-            else:
-                response = "burp What did you say?"
+            response = await maybe_respond_in_group(chat_id, username, f"[voice]: {text}")
+            if not response:
+                return
+            group_context[chat_id].append(f"Рик: {response[:100]}")
         else:
             init_chat(chat_id)
             response, files = await ask_rick(chat_id, f"[голосовое сообщение]: {text}")
@@ -330,16 +327,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = f"Пользователь прислал файл: {filename}. Что ты думаешь?"
 
     if is_group:
-        bot_username = context.bot.username or ""
-        reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
-                       and msg.reply_to_message.from_user.username == bot_username)
-        if not await should_respond_in_group(user_message, bot_username, reply_to_bot, chat_id, username):
-            group_context[chat_id].append(f"{username}: [прислал файл: {filename}]")
-            return
-        group_context[chat_id].append(f"{username}: [прислал файл: {filename}]")
-        response = await build_group_response(chat_id, username, user_message)
+        group_context[chat_id].append(f"{username}: [sent file: {filename}]")
+        response = await maybe_respond_in_group(chat_id, username, user_message)
         if not response:
-            response = "Burp, sent a file. Interesting."
+            return
         group_context[chat_id].append(f"Рик: {response[:100]}")
         await send_text(msg, response)
     else:
@@ -388,9 +379,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         has_rick_in_caption = "рик" in caption_lower or bool(
             bot_username and f"@{bot_username.lower()}" in caption_lower)
 
-        if not has_rick_in_caption and not await should_respond_in_group(
-                caption or "[фото]", bot_username, reply_to_bot, chat_id, username):
-            return  # Фото сохранено для follow-up, но не отвечаем сразу
+        if not has_rick_in_caption and not reply_to_bot:
+            return  # Photo saved for follow-up, but don't respond now
 
         # Отвечаем на фото сразу
         user_text = caption if caption else "Что на этом фото? Опиши по-рикски."
@@ -481,9 +471,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_context[chat_id].append(f"{username}: {user_text[:100]}")
 
         bot_username = context.bot.username or ""
-        reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
-                       and msg.reply_to_message.from_user.username == bot_username)
-        if not await should_respond_in_group(user_text, bot_username, reply_to_bot, chat_id, username): return
         if bot_username:
             user_text = user_text.replace(f"@{bot_username}", "").strip()
 
@@ -542,24 +529,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if recent_photo_path:
             context_lines = list(group_context.get(chat_id, []))
-            context_str = "\n".join(context_lines[-6:]) if context_lines else "(начало беседы)"
-            vision_prompt = f"Контекст чата:\n{context_str}\n\n{username} спрашивает про фото выше: {user_text}"
-            group_response = await run_claude(vision_prompt, 90, image_path=recent_photo_path)
+            context_str = "\n".join(context_lines[-6:]) if context_lines else "(no context)"
+            vision_prompt = f"Chat context:\n{context_str}\n\n{username} asks about the photo: {user_text}"
+            response = await run_claude(vision_prompt, 90, image_path=recent_photo_path)
             try:
                 os.unlink(recent_photo_path)
                 del group_recent_photos[chat_id]
             except Exception:
                 pass
-            response, files = group_response or "burp Can't see the photo, Morty", []
+            if not response:
+                response = "burp Can't see the photo, Morty"
+            files = []
             group_context[chat_id].append(f"Рик: {response[:100]}")
         else:
-            group_response = await build_group_response(chat_id, username, user_text)
+            # Combined decision + response in one Claude call
+            group_response = await maybe_respond_in_group(chat_id, username, user_text)
             if group_response:
                 response, files = group_response, []
-                # Сохраняем ответ Рика в контекст группы
                 group_context[chat_id].append(f"Рик: {group_response[:100]}")
             else:
-                response, files = await ask_rick(chat_id, user_text)
+                typing.cancel()
+                return  # Rick decided to SKIP
     else:
         response, files = await ask_rick(chat_id, user_text)
     typing.cancel()
