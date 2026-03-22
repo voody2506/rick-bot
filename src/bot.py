@@ -561,6 +561,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 response, files = await ask_rick(chat_id, user_text)
     else:
+        # In DM — let Claude decide if Rick should respond
+        should = await run_claude(
+            f'Someone wrote to Rick Sanchez in a private chat: "{user_text[:400]}"\n\n'
+            "Would Rick bother responding? He ignores boring/empty messages but always responds to real questions or interesting topics.\n"
+            "Answer only: YES or NO",
+            timeout=10
+        )
+        if "NO" in (should or "").upper() and "YES" not in (should or "").upper():
+            emoji = pick_reaction(user_text)
+            if emoji:
+                await set_reaction(context.bot, chat_id, msg.message_id, emoji)
+            typing.cancel()
+            return
         response, files = await ask_rick(chat_id, user_text)
     typing.cancel()
 
