@@ -2,7 +2,8 @@
 import json
 import logging
 from datetime import datetime
-from src.config import MEMORY_DIR
+from zoneinfo import ZoneInfo
+from src.config import MEMORY_DIR, TIMEZONE
 from src.claude import run_claude
 
 logger = logging.getLogger(__name__)
@@ -38,14 +39,14 @@ def load_scenario() -> dict:
     """Load today's scenario from file."""
     global _current_scenario
     if _current_scenario:
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(ZoneInfo(TIMEZONE)).strftime("%Y-%m-%d")
         if _current_scenario.get("date") == today:
             return _current_scenario
 
     if SCENARIO_FILE.exists():
         try:
             data = json.loads(SCENARIO_FILE.read_text())
-            today = datetime.now().strftime("%Y-%m-%d")
+            today = datetime.now(ZoneInfo(TIMEZONE)).strftime("%Y-%m-%d")
             if data.get("date") == today:
                 _current_scenario = data
                 return data
@@ -68,7 +69,7 @@ def _load_history() -> list:
 def save_scenario(scenario: dict):
     global _current_scenario
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-    scenario["date"] = datetime.now().strftime("%Y-%m-%d")
+    scenario["date"] = datetime.now(ZoneInfo(TIMEZONE)).strftime("%Y-%m-%d")
     SCENARIO_FILE.write_text(json.dumps(scenario, ensure_ascii=False, indent=2))
     _current_scenario = scenario
     # Save to history (keep last 10)
@@ -104,7 +105,7 @@ async def generate_daily_scenario():
 
 
 def _get_time_of_day() -> str:
-    hour = datetime.now().hour
+    hour = datetime.now(ZoneInfo(TIMEZONE)).hour
     if hour < 6: return "night"
     if hour < 12: return "morning"
     if hour < 18: return "afternoon"

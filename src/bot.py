@@ -15,7 +15,7 @@ from collections import defaultdict, deque
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 
-from src.config import BOT_TOKEN, OWNER_ID, MAX_HISTORY, MAX_FACTS, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
+from src.config import BOT_TOKEN, OWNER_ID, MAX_HISTORY, MAX_FACTS, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR, TIMEZONE
 
 # ─── RATE LIMITING ───────────────────────────────────────
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -34,6 +34,7 @@ def is_rate_limited(user_id: int) -> bool:
     timestamps.append(now)
     return False
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT, SUMMARIZE_PROMPT, PROFILE_PROMPT
 from src.memory import (chat_histories, group_context, group_members, group_recent_photos,
                         init_chat, save_history,
@@ -91,7 +92,7 @@ def build_prompt(chat_id, user_message):
     prompt = RICK_SYSTEM.format(work_dir=str(WORK_DIR)) + "\n\n"
 
     # Time awareness
-    now = datetime.now()
+    now = datetime.now(ZoneInfo(TIMEZONE))
     prompt += f"Current date/time: {now.strftime('%Y-%m-%d %H:%M, %A')}\n"
 
     # Daily scenario — global mood and storyline
@@ -176,7 +177,7 @@ async def summarize_and_update_profile(chat_id):
             SUMMARIZE_PROMPT.format(conversation=conv_text), timeout=15)
         if summary_raw:
             save_summary(chat_id, {
-                "date": datetime.now().strftime("%Y-%m-%d"),
+                "date": datetime.now(ZoneInfo(TIMEZONE)).strftime("%Y-%m-%d"),
                 "summary": summary_raw.strip()
             })
             logger.info(f"Saved conversation summary for chat {chat_id}")
