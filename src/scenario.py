@@ -48,19 +48,39 @@ def load_scenario() -> dict:
     return {"mood": "neutral", "scenario": "", "catchphrase": "", "date": ""}
 
 
+HISTORY_FILE = MEMORY_DIR / "scenario_history.json"
+
+
+def _load_history() -> list:
+    if HISTORY_FILE.exists():
+        try: return json.loads(HISTORY_FILE.read_text())
+        except: pass
+    return []
+
+
 def save_scenario(scenario: dict):
     global _current_scenario
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     scenario["date"] = datetime.now().strftime("%Y-%m-%d")
     SCENARIO_FILE.write_text(json.dumps(scenario, ensure_ascii=False, indent=2))
     _current_scenario = scenario
+    # Save to history (keep last 10)
+    history = _load_history()
+    history.append({"date": scenario["date"], "mood": scenario["mood"], "scenario": scenario["scenario"]})
+    history = history[-10:]
+    HISTORY_FILE.write_text(json.dumps(history, ensure_ascii=False, indent=2))
     logger.info(f"New scenario: {scenario['mood']} — {scenario['scenario'][:80]}")
 
 
 async def generate_daily_scenario():
     """Generate a new daily scenario via Claude."""
     try:
-        raw = await run_claude(SCENARIO_PROMPT, timeout=30)
+        prompt = SCENARIO_PROMPT
+        history = _load_history()
+        if history:
+            recent = "\n".join(f"- {h['date']}: [{h['mood']}] {h['scenario']}" for h in history[-5:])
+            prompt += f"\n\nRecent scenarios (DO NOT repeat these):\n{recent}"
+        raw = await run_claude(prompt, timeout=30)
         if not raw:
             return
 
