@@ -22,7 +22,7 @@ jobs:
       - run: ruff check src/ tests/
       - run: |
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest pytest-asyncio
           pytest tests/ -v
         env:
           BOT_TOKEN: fake-token-for-tests
