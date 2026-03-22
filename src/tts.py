@@ -19,7 +19,7 @@ VOICE_MARKERS = [
 ]
 
 
-VOICE_CHANCE = 0.07  # 7% chance on short messages
+VOICE_CHANCE = 0.15  # 15% chance on short messages
 
 
 def should_voice(text: str) -> bool:
