@@ -109,6 +109,42 @@ def find_new_workdir_files(since: float) -> list:
             result.append(str(f))
     return result
 
+def run_generator_scripts(files: list, since: float) -> list:
+    """If any .py scripts are in files, execute them and return generated output files instead."""
+    import subprocess
+    import sys
+
+    py_scripts = [f for f in files if f.endswith('.py')]
+    if not py_scripts:
+        return files
+
+    non_py = [f for f in files if not f.endswith('.py')]
+
+    for script in py_scripts:
+        try:
+            subprocess.run(
+                [sys.executable, script],
+                cwd=str(WORK_DIR),
+                timeout=30,
+                capture_output=True,
+            )
+            logger.info(f"Executed generator script: {script}")
+        except Exception as e:
+            logger.warning(f"Script execution failed {script}: {e}")
+
+        # Remove the script after execution
+        try:
+            os.remove(script)
+        except Exception:
+            pass
+
+    # Collect new non-.py files created by the scripts
+    generated = find_new_workdir_files(since)
+    generated = [f for f in generated if not f.endswith('.py')]
+
+    return list(set(non_py + generated))
+
+
 def cleanup_work_dir():
     """Очищает временные файлы старше 1 часа"""
     if WORK_DIR.exists():

@@ -17,7 +17,7 @@ from src.memory import (chat_histories, init_chat, save_history,
                         load_facts, save_facts, load_summaries, save_summary,
                         load_profile, save_profile)
 from src.claude import run_claude
-from src.media import find_created_files, find_new_workdir_files
+from src.media import find_created_files, find_new_workdir_files, run_generator_scripts
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -157,6 +157,9 @@ async def ask_rick(chat_id, user_message, image_path=None):
 
     # Check for created files even if response is empty (CLI may create files without text output)
     files = list(set(find_created_files(response or "") + find_new_workdir_files(start_time)))
+
+    # If CLI created .py scripts, execute them to generate actual output files (.pptx, etc.)
+    files = run_generator_scripts(files, start_time)
 
     if not response:
         if files:
