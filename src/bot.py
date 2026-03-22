@@ -638,28 +638,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         screenshot = None
         url_match = re.search(r'https?://[^\s]+', user_text)
         text_lower = user_text.lower()
+        show_keywords = ["покажи", "посмотри", "открой", "глянь", "show", "look", "check", "скриншот", "screenshot"]
+        want_screenshot = any(w in text_lower for w in show_keywords) or bool(url_match)
 
         if url_match:
-            # Open URL
             url = url_match.group(0)
             logger.info(f"Browsing URL: {url}")
-            screenshot, page_text = await navigate(chat_id, url)
+            sc, page_text = await navigate(chat_id, url)
+            if want_screenshot:
+                screenshot = sc
             if page_text:
                 user_text = f"{user_text}\n\n[Page content from {url}]:\n{page_text[:2000]}"
         elif has_active_session(chat_id):
-            # Browser session active — detect actions
             if any(w in text_lower for w in ["скролл", "scroll", "ниже", "дальше", "вниз"]):
-                screenshot, page_text = await scroll(chat_id, "down")
+                sc, page_text = await scroll(chat_id, "down")
+                if want_screenshot: screenshot = sc
                 user_text = f"{user_text}\n\n[After scrolling]:\n{page_text[:2000]}"
             elif any(w in text_lower for w in ["наверх", "вверх", "scroll up"]):
-                screenshot, page_text = await scroll(chat_id, "up")
+                sc, page_text = await scroll(chat_id, "up")
+                if want_screenshot: screenshot = sc
                 user_text = f"{user_text}\n\n[After scrolling up]:\n{page_text[:2000]}"
             elif any(w in text_lower for w in ["нажми", "кликни", "click", "нажать", "перейди"]):
-                # Extract target — everything after the keyword
                 for kw in ["нажми на ", "кликни на ", "click on ", "click ", "нажми ", "кликни ", "перейди на ", "перейди в "]:
                     if kw in text_lower:
                         target = user_text[text_lower.index(kw) + len(kw):].strip().strip('"\'')
-                        screenshot, page_text = await click(chat_id, target)
+                        sc, page_text = await click(chat_id, target)
+                        if want_screenshot: screenshot = sc
                         user_text = f"{user_text}\n\n[After clicking '{target}']:\n{page_text[:2000]}"
                         break
             elif any(w in text_lower for w in ["закрой", "close", "стоп браузер", "хватит"]):
