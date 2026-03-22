@@ -15,12 +15,19 @@ Include:
 1. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug
 2. **scenario** — 2-3 sentences about what Rick is doing today. Something absurd, sci-fi, very Rick. Reference dimensions, inventions, aliens, the Galactic Federation, Birdperson, etc.
 3. **catchphrase** — a one-liner Rick keeps repeating today
+4. **schedule** — what Rick is doing at different times of day (affects how he reacts)
 
 Return ONLY valid JSON:
 {
   "mood": "drunk",
-  "scenario": "Rick accidentally opened a portal to a dimension where gravity is optional and now his garage is floating. He's trying to fix it while drinking.",
-  "catchphrase": "Gravity is a social construct, Morty."
+  "scenario": "Rick accidentally opened a portal to a dimension where gravity is optional and now his garage is floating.",
+  "catchphrase": "Gravity is a social construct, Morty.",
+  "schedule": {
+    "night": "Passed out in the garage next to a half-built quantum destabilizer",
+    "morning": "Woke up angry, coffee and cursing",
+    "afternoon": "Trying to fix the portal gun, yelling at Morty to hold things",
+    "evening": "Drinking and watching interdimensional cable, surprisingly calm"
+  }
 }"""
 
 # Cache in memory
@@ -96,16 +103,33 @@ async def generate_daily_scenario():
         logger.error(f"Scenario generation error: {e}")
 
 
+def _get_time_of_day() -> str:
+    hour = datetime.now().hour
+    if hour < 6: return "night"
+    if hour < 12: return "morning"
+    if hour < 18: return "afternoon"
+    return "evening"
+
+
 def get_scenario_for_prompt() -> str:
     """Get scenario text to inject into Rick's prompt."""
     s = load_scenario()
     if not s.get("scenario"):
         return ""
 
-    return (
+    time_of_day = _get_time_of_day()
+    schedule = s.get("schedule", {})
+    current_activity = schedule.get(time_of_day, "")
+
+    result = (
         f"\nRICK'S CURRENT STATE:\n"
         f"Mood: {s['mood']}\n"
-        f"What's happening: {s['scenario']}\n"
-        f"Your catchphrase today: \"{s['catchphrase']}\"\n"
-        f"Let this affect your tone and occasionally reference what you're going through.\n"
+        f"Today's story: {s['scenario']}\n"
     )
+    if current_activity:
+        result += f"Right now ({time_of_day}): {current_activity}\n"
+    result += (
+        f"Your catchphrase today: \"{s['catchphrase']}\"\n"
+        f"Let this affect your tone and occasionally reference what you're doing.\n"
+    )
+    return result
