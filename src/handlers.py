@@ -198,7 +198,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(f"burp Couldn't download the photo: {e}")
         return
 
-    user_text = msg.caption or "What's in this photo? Describe it, Rick-style."
+    caption = msg.caption or ""
+    rate_keywords = ["rate", "оцени", "оценка", "оценить", "/rate"]
+    if any(kw in caption.lower() for kw in rate_keywords):
+        user_text = f"Rate this image X/10 with a brutal Rick-style review. User says: {caption}"
+    else:
+        user_text = caption or "What's in this photo? Describe it, Rick-style."
 
     async def keep_typing():
         for _ in range(20):

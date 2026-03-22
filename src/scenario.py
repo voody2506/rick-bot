@@ -77,6 +77,9 @@ _current_scenario: dict | None = None
 # Track used subplots per chat so they don't repeat
 _used_subplots: dict[int, set[int]] = {}  # chat_id -> set of used subplot indices
 _used_subplots_date: str = ""
+
+# Per-chat scenario overrides (e.g. user woke Rick up)
+_slot_overrides: dict[int, dict] = {}  # chat_id -> {"who": str, "activity": str, "slot": str}
 SUBPLOT_CHANCE = 0.20  # 20% chance per message
 
 
@@ -157,6 +160,26 @@ def _get_time_of_day() -> str:
     return "evening"
 
 
+def set_slot_override(chat_id: int, who: str, activity: str):
+    """Override current time slot for this chat."""
+    _slot_overrides[chat_id] = {
+        "who": who,
+        "activity": activity,
+        "slot": _get_time_of_day()
+    }
+
+
+def _get_active_override(chat_id: int) -> dict | None:
+    """Get override if it's still for the current time slot."""
+    override = _slot_overrides.get(chat_id)
+    if not override:
+        return None
+    if override["slot"] != _get_time_of_day():
+        del _slot_overrides[chat_id]  # expired — slot changed
+        return None
+    return override
+
+
 def get_scenario_for_prompt(chat_id: int = 0) -> str:
     """Get scenario text to inject into Rick's prompt."""
     s = load_scenario()
@@ -175,6 +198,12 @@ def get_scenario_for_prompt(chat_id: int = 0) -> str:
         current_who = s.get("character", "rick")
         current_activity = slot
 
+    # Apply per-chat override if active
+    override = _get_active_override(chat_id)
+    if override:
+        current_who = override["who"]
+        current_activity = override["activity"]
+
     if current_who != "rick":
         result = (
             f"\nIMPORTANT — RIGHT NOW YOU ARE {current_who.upper()}, NOT RICK.\n"
@@ -191,10 +220,17 @@ def get_scenario_for_prompt(chat_id: int = 0) -> str:
         )
 
     if current_activity:
-        result += f"Right now ({time_of_day}): {current_activity}\n"
+        result += f"Default activity ({time_of_day}): {current_activity}\n"
     result += (
         f"Your catchphrase today: \"{s['catchphrase']}\"\n"
-        f"Stay in character and reference what you're doing.\n"
+        f"This is background context — DON'T force it into every response. "
+        f"Only reference it when it fits naturally, when you're bored, or when the user asks.\n"
+        f"IMPORTANT: The schedule is a DEFAULT, not a rule. If the user's actions change the situation "
+        f"(e.g. wakes you up, breaks something, calls someone), ADAPT — go with what happened. "
+        f"Check the conversation history: if the story already changed earlier in this chat, stay consistent with that.\n"
+        f"If the user's actions SIGNIFICANTLY change the current situation, add at the very END of your response "
+        f"on a new line: SCENARIO_UPDATE: who=<character> activity=<brief description of new state>\n"
+        f"Example: user pours water on sleeping Rick → SCENARIO_UPDATE: who=rick activity=Woke up furious, soaking wet, swearing revenge\n"
     )
 
     # Random subplot injection (per-chat)

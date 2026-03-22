@@ -2,7 +2,9 @@
 
 import json
 import os
+import re
 import time
+import random
 import asyncio
 import logging
 from collections import defaultdict, deque
@@ -22,6 +24,8 @@ from src.memes import maybe_send_gif
 from src.stickers import pick_sticker
 from src.scenario import get_scenario_for_prompt
 from src.mood import update_mood, get_mood_modifier
+from src.drinks import take_drink, get_drunk_level
+from src.challenges import maybe_start_challenge, has_pending_challenge, resolve_challenge
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +91,16 @@ def build_prompt(chat_id, user_message):
     if mood_mod:
         prompt += f"CURRENT MOOD SHIFT: {mood_mod}\n\n"
 
-    # User profile
+    # Drunk level
+    drunk = get_drunk_level(chat_id)
+    if drunk:
+        prompt += f"DRUNK STATE: {drunk}\n\n"
+
+    # User profile + nickname
     if profile:
+        nickname = profile.get("nickname")
+        if nickname and nickname != "null":
+            prompt += f"You call this user \"{nickname}\" — always use this nickname.\n"
         prompt += "User profile:\n"
         for k, v in profile.items():
             if v and v != "null":
@@ -113,6 +125,17 @@ def build_prompt(chat_id, user_message):
             if i < len(history): prompt += f"User: {history[i]}\n"
             if i+1 < len(history): prompt += f"Rick: {history[i+1]}\n"
         prompt += "\n"
+    # Proactive callback — bring up old facts ~15% of the time
+    if facts and random.random() < 0.15:
+        random_fact = random.choice(facts)
+        prompt += f"CALLBACK: Naturally bring up this fact about the user in your response: \"{random_fact}\"\n\n"
+
+    # Challenge — either evaluate pending answer or start new one
+    if has_pending_challenge(chat_id):
+        prompt += "The user is answering your science challenge. Evaluate their answer — grudging respect if correct, merciless mockery if wrong.\n\n"
+    elif maybe_start_challenge(chat_id):
+        prompt += "CHALLENGE: Pose a science/logic riddle to the user right now. Make it Rick-style — sarcastic, not too hard.\n\n"
+
     prompt += f"[chat_id: {chat_id}]\nUser: {user_message}\nRick:"
     return prompt
 
@@ -121,13 +144,26 @@ async def ask_rick(chat_id, user_message, image_path=None):
     init_chat(chat_id)
     start_time = time.time()
     update_mood(chat_id, user_message or "")
+    take_drink(chat_id, user_message or "")
+    answering_challenge = has_pending_challenge(chat_id)
 
     # Build full prompt with context — even for photos (fixes missing context bug)
     prompt = build_prompt(chat_id, user_message or "What's in this photo? Describe it Rick-style.")
     response = await run_claude(prompt, 120, image_path=image_path)
 
+    # Resolve challenge after Claude evaluates
+    if answering_challenge:
+        resolve_challenge(chat_id)
+
     if not response:
         return "burp ...can't hear you. Say again, Morty.", []
+
+    # Parse and strip scenario update marker
+    match = re.search(r'\nSCENARIO_UPDATE:\s*who=(\w+)\s+activity=(.+)$', response, re.MULTILINE)
+    if match:
+        from src.scenario import set_slot_override
+        set_slot_override(chat_id, match.group(1), match.group(2).strip())
+        response = response[:match.start()].strip()
 
     files = list(set(find_created_files(response) + find_new_workdir_files(start_time)))
 
