@@ -3,6 +3,7 @@ import asyncio
 import io
 import json
 import logging
+import random
 import urllib.request
 from src.config import TTS_ENABLED, FISH_AUDIO_API_KEY, FISH_AUDIO_VOICE_ID
 
@@ -18,18 +19,19 @@ VOICE_MARKERS = [
 ]
 
 
+VOICE_CHANCE = 0.3  # 30% chance even when emotional
+
+
 def should_voice(text: str) -> bool:
-    """Decide if Rick should send a voice message — short + emotional."""
+    """Decide if Rick should send a voice message — short + emotional + random."""
     if len(text) > MAX_TTS_LENGTH:
         return False
     text_lower = text.lower()
-    # Exclamations
-    if "!" in text or "?!" in text:
-        return True
-    # Emotional markers
-    if any(m in text_lower for m in VOICE_MARKERS):
-        return True
-    return False
+    is_emotional = ("!" in text or "?!" in text or
+                    any(m in text_lower for m in VOICE_MARKERS))
+    if not is_emotional:
+        return False
+    return random.random() < VOICE_CHANCE
 
 
 def _generate_sync(text: str) -> bytes | None:
