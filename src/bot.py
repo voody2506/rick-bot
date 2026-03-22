@@ -587,7 +587,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_history(chat_id, chat_histories[chat_id])
     facts = load_facts(chat_id)
     note = " Кстати, я тебя помню." if facts else ""
-    response, files = await ask_rick(chat_id, f"Открыли чат.{note} Поприветствуй коротко. Скажи что умеешь: отвечать на вопросы, писать код, искать в интернете, анализировать фото, принимать голосовые сообщения, создавать и присылать файлы.")
+    response, files = await ask_rick(chat_id, f"Открыли чат.{note} Поприветствуй коротко по-рикски. Скажи что умеешь: отвечать на вопросы, писать и запускать код, искать в интернете, открывать сайты через браузер, анализировать фото, понимать голосовые сообщения, создавать и присылать файлы (код, презентации, документы), иногда отвечать голосом.")
     await send_response(update.message, response, files, context)
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
