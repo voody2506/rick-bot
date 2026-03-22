@@ -13,7 +13,7 @@ def load_history(chat_id):
     path = get_memory_dir(chat_id) / "history.json"
     if path.exists():
         try: return deque(json.loads(path.read_text()), maxlen=MAX_HISTORY * 2)
-        except: pass
+        except Exception: pass
     return deque(maxlen=MAX_HISTORY * 2)
 
 def save_history(chat_id, history):
@@ -24,7 +24,7 @@ def load_facts(chat_id):
     path = get_memory_dir(chat_id) / "facts.json"
     if path.exists():
         try: return json.loads(path.read_text())
-        except: pass
+        except Exception: pass
     return []
 
 def save_facts(chat_id, facts):
@@ -51,7 +51,7 @@ def load_summaries(chat_id) -> list:
     path = get_memory_dir(chat_id) / "summaries.json"
     if path.exists():
         try: return json.loads(path.read_text())
-        except: pass
+        except Exception: pass
     return []
 
 

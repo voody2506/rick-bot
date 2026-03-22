@@ -95,7 +95,7 @@ async def handle_schedule_request(chat_id: int, text: str) -> str:
 
 async def send_scheduled_message(chat_id: int, task: str):
     """Выполняет запланированную задачу — вызывается APScheduler"""
-    from src.bot import ask_rick
+    from src.core import ask_rick
     try:
         response, files = await ask_rick(chat_id, f"[Scheduled task] {task}")
         await _app.bot.send_message(chat_id=chat_id, text=response)

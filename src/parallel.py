@@ -7,7 +7,7 @@ from src.prompts import RICK_SYSTEM, PARALLEL_CHECK, MERGE_PROMPT
 
 async def try_parallel(chat_id, message):
     check = await run_claude(PARALLEL_CHECK.format(message=message), timeout=15)
-    if not check or "НЕТ" in check.upper() or not check.strip().startswith("-"):
+    if not check or "NO" in check.upper() or not check.strip().startswith("-"):
         return None
     subtasks = [l.lstrip("- ").strip() for l in check.split("\n") if l.strip().startswith("-")]
     if len(subtasks) < 2: return None

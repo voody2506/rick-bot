@@ -95,7 +95,7 @@ HISTORY_FILE = MEMORY_DIR / "scenario_history.json"
 def _load_history() -> list:
     if HISTORY_FILE.exists():
         try: return json.loads(HISTORY_FILE.read_text())
-        except: pass
+        except Exception: pass
     return []
 
 

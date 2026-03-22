@@ -23,10 +23,13 @@ VOICE_CHANCE = 0.08  # 8% chance on short messages
 
 
 def should_voice(text: str) -> bool:
-    """Decide if Rick should send a voice message — short + 7% random."""
+    """Decide if Rick should send a voice message — higher chance when emotional."""
     if len(text) > MAX_TTS_LENGTH:
         return False
-    return random.random() < VOICE_CHANCE
+    text_lower = text.lower()
+    has_markers = any(m in text_lower for m in VOICE_MARKERS)
+    chance = VOICE_CHANCE * 2.5 if has_markers else VOICE_CHANCE
+    return random.random() < chance
 
 
 def _generate_sync(text: str) -> bytes | None:

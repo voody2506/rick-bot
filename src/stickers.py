@@ -1,6 +1,7 @@
 """Rick sticker responses — sends stickers by mood from curated packs."""
 import random
 import logging
+from src.mood_detect import detect_mood
 
 logger = logging.getLogger(__name__)
 
@@ -9,66 +10,51 @@ STICKER_CHANCE = 0.10  # 10% chance on short messages
 # Sticker file_ids grouped by mood (from RickAndMorty, MrPoopy, Meeseeks packs)
 STICKERS = {
     "facepalm": [
-        "CAACAgIAAxUAAWm_Rb1yVPUwGzmd4107kQABYjRiAQACuA4AAlEOOUsuTuauZpwKkjoE",  # 🤦‍♂️
-        "CAACAgIAAxUAAWm_RbxfY3fzSuxkmxjom0jAbtJVAAI3AwACtXHaBqSAkerG-Gh2OgQ",  # 😢
+        "CAACAgIAAxUAAWm_Rb1yVPUwGzmd4107kQABYjRiAQACuA4AAlEOOUsuTuauZpwKkjoE",
+        "CAACAgIAAxUAAWm_RbxfY3fzSuxkmxjom0jAbtJVAAI3AwACtXHaBqSAkerG-Gh2OgQ",
     ],
     "angry": [
-        "CAACAgIAAxUAAWm_Rbxg4kG4c9yYcNCv0JQgKumhAAI1EQACNtrYSVlSKqh1OH1COgQ",  # 😡
-        "CAACAgIAAxUAAWm_Rbz1cG9TSULlA2U2oow8sCBvAAI6AwACtXHaBiDulSPzkEA2OgQ",  # 🤬
-        "CAACAgIAAxUAAWm_RbwPMFNpfu6PTMKBhv3g3p3UAAIoAwACtXHaBpB6SodelUpuOgQ",  # 🖕
+        "CAACAgIAAxUAAWm_Rbxg4kG4c9yYcNCv0JQgKumhAAI1EQACNtrYSVlSKqh1OH1COgQ",
+        "CAACAgIAAxUAAWm_Rbz1cG9TSULlA2U2oow8sCBvAAI6AwACtXHaBiDulSPzkEA2OgQ",
+        "CAACAgIAAxUAAWm_RbwPMFNpfu6PTMKBhv3g3p3UAAIoAwACtXHaBpB6SodelUpuOgQ",
     ],
     "genius": [
-        "CAACAgIAAxUAAWm_RbyGhEVesnS5WCmvB2tB_Yy0AAI5AwACtXHaBmh9wyozEKYCOgQ",  # 😎
-        "CAACAgIAAxUAAWm_Rbxlycr4EItn7oobAgzGaggoAAIxAwACtXHaBqKdXuJ4Jm7mOgQ",  # 💪
-        "CAACAgIAAxUAAWm_RbxpHbbSweTwRi7QcfPUd9-pAAItAwACtXHaBl JdSDo4DpaAOgQ",  # ☝️
+        "CAACAgIAAxUAAWm_RbyGhEVesnS5WCmvB2tB_Yy0AAI5AwACtXHaBmh9wyozEKYCOgQ",
+        "CAACAgIAAxUAAWm_Rbxlycr4EItn7oobAgzGaggoAAIxAwACtXHaBqKdXuJ4Jm7mOgQ",
+        "CAACAgIAAxUAAWm_RbxpHbbSweTwRi7QcfPUd9-pAAItAwACtXHaBl JdSDo4DpaAOgQ",
     ],
     "drunk": [
-        "CAACAgIAAxUAAWm_RbyAFei24g9oBS_o_IuSbiIdAAIvAwACtXHaBu0FMEu2Y03ROgQ",  # 🥴
-        "CAACAgIAAxUAAWm_RbxjFwXUe9QVf7ozbo78eAKXAAIsAwACtXHaBotgl-Dh0B91OgQ",  # 😴
+        "CAACAgIAAxUAAWm_RbyAFei24g9oBS_o_IuSbiIdAAIvAwACtXHaBu0FMEu2Y03ROgQ",
+        "CAACAgIAAxUAAWm_RbxjFwXUe9QVf7ozbo78eAKXAAIsAwACtXHaBotgl-Dh0B91OgQ",
     ],
     "thinking": [
-        "CAACAgIAAxUAAWm_RbxWwHwbIzdCVkRfInyROeYWAAI5AwACtXHaBiNQZme8RjitOgQ",  # 🤔
-        "CAACAgIAAxUAAWm_Rb3Wqh-_9U4-HhSy3TLoRvpVAAKhDAACQVqJSXJ2toezBbLYOgQ",  # 🤔
+        "CAACAgIAAxUAAWm_RbxWwHwbIzdCVkRfInyROeYWAAI5AwACtXHaBiNQZme8RjitOgQ",
+        "CAACAgIAAxUAAWm_Rb3Wqh-_9U4-HhSy3TLoRvpVAAKhDAACQVqJSXJ2toezBbLYOgQ",
     ],
     "laugh": [
-        "CAACAgIAAxUAAWm_RbzMW2BJoSdA7Q2aYi2EfpK-AAIkAwACtXHaBp-KKzzkUc-9OgQ",  # 😂
-        "CAACAgIAAxUAAWm_RbyMNRXHdF_z7zymvNlULynNAAKmDAACdC9pS6F6_R8I6ZuOOgQ",  # 😂
-        "CAACAgIAAxUAAWm_Rb1r1di00k8kOUAWEfqG8FURAALoDwACf8YQSryPZWQ6eOTpOgQ",  # 😂
+        "CAACAgIAAxUAAWm_RbzMW2BJoSdA7Q2aYi2EfpK-AAIkAwACtXHaBp-KKzzkUc-9OgQ",
+        "CAACAgIAAxUAAWm_RbyMNRXHdF_z7zymvNlULynNAAKmDAACdC9pS6F6_R8I6ZuOOgQ",
+        "CAACAgIAAxUAAWm_Rb1r1di00k8kOUAWEfqG8FURAALoDwACf8YQSryPZWQ6eOTpOgQ",
     ],
     "evil": [
-        "CAACAgIAAxUAAWm_Rby01FkGt7Eyf9aHkk-_p8QBAAI_AwACtXHaBpmD7Hp6-DRVOgQ",  # 😈
-        "CAACAgIAAxUAAWm_RbzOXBpMJgmeBw-VbA8Njd7mAAI7AwACtXHaBhhLBtJVU8tEOgQ",  # 🤫
+        "CAACAgIAAxUAAWm_Rby01FkGt7Eyf9aHkk-_p8QBAAI_AwACtXHaBpmD7Hp6-DRVOgQ",
+        "CAACAgIAAxUAAWm_RbzOXBpMJgmeBw-VbA8Njd7mAAI7AwACtXHaBhhLBtJVU8tEOgQ",
     ],
     "cool": [
-        "CAACAgIAAxUAAWm_Rb3fsdVrdFSyMxWRsXtpf51lAAJ4DwACQSVISwABxSLmQfOYhjoE",  # 😎
-        "CAACAgIAAxUAAWm_RbyikCb9aiS-hJGUtXigPYUjAAIpAwACtXHaBt0xkieb3sQBOgQ",  # 👌
+        "CAACAgIAAxUAAWm_Rb3fsdVrdFSyMxWRsXtpf51lAAJ4DwACQSVISwABxSLmQfOYhjoE",
+        "CAACAgIAAxUAAWm_RbyikCb9aiS-hJGUtXigPYUjAAIpAwACtXHaBt0xkieb3sQBOgQ",
     ],
     "scared": [
-        "CAACAgIAAxUAAWm_Rbxgqfb9PX7AYu8i5-65sxfQAAIlAwACtXHaBnybn1XbRS4yOgQ",  # 😱
-        "CAACAgIAAxUAAWm_Rbyg0zRWoQSA7BBXmPVJ2347AAL4DAAC-1iZStKMdFGWqXFVOgQ",  # 😨
+        "CAACAgIAAxUAAWm_Rbxgqfb9PX7AYu8i5-65sxfQAAIlAwACtXHaBnybn1XbRS4yOgQ",
+        "CAACAgIAAxUAAWm_Rbyg0zRWoQSA7BBXmPVJ2347AAL4DAAC-1iZStKMdFGWqXFVOgQ",
     ],
     "pickle": [
-        "CAACAgIAAxUAAWm_Rbw3uc9XtyMTIZbUpcQFffLQAAI4AwACtXHaBsLy3lrP6g0VOgQ",  # 🥒
+        "CAACAgIAAxUAAWm_Rbw3uc9XtyMTIZbUpcQFffLQAAI4AwACtXHaBsLy3lrP6g0VOgQ",
     ],
     "party": [
-        "CAACAgIAAxUAAWm_RbxQTdzAK5_WnzZxpW-TbS93AAI-EAAC5M5hSe4qrVGogMfnOgQ",  # 🥳
-        "CAACAgIAAxUAAWm_Rb03q6Gq0yJJuDZYtOKD8EFAAAJVEQACj5nhSiIeHICga4P0OgQ",  # 🕺
+        "CAACAgIAAxUAAWm_RbxQTdzAK5_WnzZxpW-TbS93AAI-EAAC5M5hSe4qrVGogMfnOgQ",
+        "CAACAgIAAxUAAWm_Rb03q6Gq0yJJuDZYtOKD8EFAAAJVEQACj5nhSiIeHICga4P0OgQ",
     ],
-}
-
-# Response text keywords → sticker mood
-STICKER_KEYWORDS = {
-    "facepalm": ["тупой", "идиот", "дебил", "stupid", "dumb", "джерри", "jerry", "серьёзно"],
-    "angry": ["бесит", "злит", "чёрт", "damn", "заткни", "shut up", "ненавижу"],
-    "genius": ["гений", "genius", "умный", "smart", "легко", "очевидно", "obviously", "элементарно"],
-    "drunk": ["ырп", "burp", "бурп", "пьян", "выпь", "flask", "пиво", "водк"],
-    "thinking": ["хмм", "hmm", "подумать", "интересно", "interesting", "вопрос"],
-    "laugh": ["ахах", "хаха", "lol", "смешно", "funny", "ржу"],
-    "evil": ["план", "scheme", "мухаха", "evil", "отлично", "excellent"],
-    "cool": ["круто", "cool", "класс", "nice", "неплохо", "not bad"],
-    "scared": ["опасно", "danger", "бежим", "run", "помогите"],
-    "pickle": ["огурец", "pickle", "огурчик"],
-    "party": ["празднуем", "celebrate", "вечеринка", "party", "ура", "yay"],
 }
 
 
@@ -80,11 +66,10 @@ def pick_sticker(response_text: str) -> str | None:
     if random.random() > STICKER_CHANCE:
         return None
 
-    text_lower = response_text.lower()
-    for mood, keywords in STICKER_KEYWORDS.items():
-        if any(kw in text_lower for kw in keywords):
-            stickers = STICKERS.get(mood, [])
-            if stickers:
-                return random.choice(stickers)
+    mood = detect_mood(response_text)
+    if mood:
+        stickers = STICKERS.get(mood, [])
+        if stickers:
+            return random.choice(stickers)
 
     return None

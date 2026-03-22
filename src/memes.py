@@ -3,12 +3,13 @@ import random
 import asyncio
 import logging
 from src.config import TAVILY_API_KEY
+from src.mood_detect import detect_mood
 
 logger = logging.getLogger(__name__)
 
 GIF_CHANCE = 0.05  # 5% chance — very rare
 
-# Mood keywords in Rick's response → search query
+# Mood -> search query for GIFs
 MOOD_SEARCHES = {
     "facepalm": "facepalm meme gif",
     "genius": "genius big brain meme gif",
@@ -19,26 +20,8 @@ MOOD_SEARCHES = {
     "science": "science meme gif nerd",
 }
 
-MOOD_KEYWORDS = {
-    "facepalm": ["тупой", "идиот", "дебил", "stupid", "dumb", "джерри", "jerry"],
-    "genius": ["гений", "genius", "умный", "smart", "очевидно", "obviously"],
-    "drunk": ["ырп", "burp", "бурп", "пьян", "drunk"],
-    "angry": ["бесит", "чёрт", "damn", "заткни", "shut up"],
-    "laugh": ["ахах", "хаха", "lol", "смешно", "funny"],
-    "whatever": ["пофиг", "whatever", "ладно", "fine"],
-    "science": ["наука", "science", "физика", "квант", "портал"],
-}
-
-# Cache: mood → list of GIF URLs (filled on first search)
+# Cache: mood -> list of GIF URLs (filled on first search)
 _gif_cache: dict[str, list[str]] = {}
-
-
-def _detect_mood(text: str) -> str | None:
-    text_lower = text.lower()
-    for mood, keywords in MOOD_KEYWORDS.items():
-        if any(kw in text_lower for kw in keywords):
-            return mood
-    return None
 
 
 def _search_gif_sync(query: str) -> list[str]:
@@ -79,7 +62,7 @@ async def maybe_send_gif(response_text: str, bot, chat_id: int) -> bool:
     if len(response_text) > 100:
         return False
 
-    mood = _detect_mood(response_text)
+    mood = detect_mood(response_text)
     if not mood:
         return False
 
@@ -89,7 +72,7 @@ async def maybe_send_gif(response_text: str, bot, chat_id: int) -> bool:
     # Check cache first
     if mood not in _gif_cache:
         query = MOOD_SEARCHES.get(mood, "rick and morty")
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         _gif_cache[mood] = await loop.run_in_executor(None, _search_gif_sync, query)
 
     gifs = _gif_cache.get(mood, [])

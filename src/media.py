@@ -24,7 +24,7 @@ def get_whisper_model():
 
 async def transcribe_audio(ogg_path: str, language: str = "ru") -> str:
     """Transcribe audio file using Whisper in executor."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     model = get_whisper_model()
     result = await loop.run_in_executor(
         None, lambda: model.transcribe(ogg_path, language=language)
@@ -70,7 +70,7 @@ def _ddg_search_sync(query: str) -> str:
 
 async def web_search(query: str) -> str:
     """Web search — Tavily if available, DuckDuckGo fallback."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         if TAVILY_API_KEY:
             return await loop.run_in_executor(None, _tavily_search_sync, query)

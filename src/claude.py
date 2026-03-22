@@ -15,10 +15,20 @@ def run_claude_sync(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str 
     return _run_cli_sync(prompt, timeout, image_path)
 
 
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        import anthropic
+        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    return _client
+
+
 def _run_sdk_sync(prompt: str, timeout: int, image_path: str = None) -> str:
     """Anthropic SDK mode."""
-    import anthropic
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    client = _get_client()
     content = []
     if image_path and os.path.exists(image_path):
         with open(image_path, "rb") as f:
@@ -73,5 +83,5 @@ def _build_vision_cli_prompt(user_question: str, image_path: str) -> str:
 
 
 async def run_claude(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str = None) -> str:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, run_claude_sync, prompt, timeout, image_path)
