@@ -220,16 +220,17 @@ async def summarize_and_update_profile(chat_id):
 # ─── HANDLERS ─────────────────────────────────────────────
 
 async def send_response(msg, response, files, context):
-    """Send text, optional voice, and any created files."""
-    await msg.reply_text(response)
-
-    # TTS — send voice message
+    """Send text OR voice, plus any created files."""
+    # TTS — send voice instead of text if triggered
     voice = await generate_voice(response)
     if voice:
         try:
             await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
         except Exception as e:
             logger.warning(f"TTS send error: {e}")
+            await msg.reply_text(response)  # fallback to text
+    else:
+        await msg.reply_text(response)
 
     if not files and any(kw in response.lower() for kw in FILE_INTENT_KEYWORDS):
         await msg.reply_text("📎 [File sending in development]")
