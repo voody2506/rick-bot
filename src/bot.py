@@ -268,7 +268,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_username = context.bot.username or ""
         reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
                        and msg.reply_to_message.from_user.username == bot_username)
-        if not should_respond_in_group(f"[голосовое от {username}]", bot_username, reply_to_bot, chat_id, username):
+        if not await should_respond_in_group(f"[голосовое от {username}]", bot_username, reply_to_bot, chat_id, username):
             group_context[chat_id].append(f"{username}: [голосовое сообщение]")
             return
 
@@ -333,7 +333,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_username = context.bot.username or ""
         reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
                        and msg.reply_to_message.from_user.username == bot_username)
-        if not should_respond_in_group(user_message, bot_username, reply_to_bot, chat_id, username):
+        if not await should_respond_in_group(user_message, bot_username, reply_to_bot, chat_id, username):
             group_context[chat_id].append(f"{username}: [прислал файл: {filename}]")
             return
         group_context[chat_id].append(f"{username}: [прислал файл: {filename}]")
@@ -388,7 +388,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         has_rick_in_caption = "рик" in caption_lower or bool(
             bot_username and f"@{bot_username.lower()}" in caption_lower)
 
-        if not has_rick_in_caption and not should_respond_in_group(
+        if not has_rick_in_caption and not await should_respond_in_group(
                 caption or "[фото]", bot_username, reply_to_bot, chat_id, username):
             return  # Фото сохранено для follow-up, но не отвечаем сразу
 
@@ -483,7 +483,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_username = context.bot.username or ""
         reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
                        and msg.reply_to_message.from_user.username == bot_username)
-        if not should_respond_in_group(user_text, bot_username, reply_to_bot, chat_id, username): return
+        if not await should_respond_in_group(user_text, bot_username, reply_to_bot, chat_id, username): return
         if bot_username:
             user_text = user_text.replace(f"@{bot_username}", "").strip()
 

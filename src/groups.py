@@ -1,13 +1,11 @@
 """Group chat logic — response decisions, member formatting, group responses."""
-import random
-from src.config import GROUP_RANDOM_CHANCE
 from src.memory import group_context, group_members, load_facts
 from src.prompts import GROUP_SYSTEM, GROUP_RESPONSE_PROMPT
 from src.claude import run_claude
 
 
-def should_respond_in_group(text: str, bot_username: str = "", reply_to_bot: bool = False, chat_id: int = None, username: str = None) -> bool:
-    """Rick responds in group: direct mention, reply, or random chance."""
+async def should_respond_in_group(text: str, bot_username: str = "", reply_to_bot: bool = False, chat_id: int = None, username: str = None) -> bool:
+    """Rick responds in group: direct mention, reply, or Claude decides."""
     if reply_to_bot:
         return True
 
@@ -18,10 +16,18 @@ def should_respond_in_group(text: str, bot_username: str = "", reply_to_bot: boo
     if any(m in text_lower for m in mentions):
         return True
 
-    if len(text.strip()) > 20 and random.random() < GROUP_RANDOM_CHANCE:
-        return True
+    if len(text.strip()) < 5:
+        return False
 
-    return False
+    # Let Claude decide
+    from src.prompts import DECISION_PROMPT
+    context_lines = list(group_context.get(chat_id, []))
+    context_str = "\n".join(context_lines[-6:]) if context_lines else "(no context)"
+    decision = await run_claude(
+        DECISION_PROMPT.format(context=context_str, username=username or "Someone", message=text[:400]),
+        timeout=10
+    )
+    return "ДА" in (decision or "").upper() or "YES" in (decision or "").upper()
 
 
 def format_members_for_prompt(chat_id) -> str:
