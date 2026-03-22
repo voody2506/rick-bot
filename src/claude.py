@@ -62,8 +62,12 @@ def _run_cli_sync(prompt: str, timeout: int, image_path: str = None) -> str:
             cmd, capture_output=True, text=True, timeout=timeout,
             cwd=str(WORK_DIR)
         )
-        return result.stdout.strip() if result.returncode == 0 else ""
+        if result.returncode != 0:
+            logger.warning(f"CLI non-zero exit ({result.returncode}): {result.stderr[:200] if result.stderr else 'no stderr'}")
+            return result.stdout.strip() if result.stdout.strip() else ""
+        return result.stdout.strip()
     except subprocess.TimeoutExpired:
+        logger.warning(f"CLI timeout after {timeout}s")
         return ""
     except FileNotFoundError:
         return "claude CLI not found"

@@ -149,7 +149,13 @@ async def ask_rick(chat_id, user_message, image_path=None):
 
     # Build full prompt with context — even for photos (fixes missing context bug)
     prompt = build_prompt(chat_id, user_message or "What's in this photo? Describe it Rick-style.")
-    response = await run_claude(prompt, 120, image_path=image_path)
+
+    # Longer timeout for file creation requests (CLI needs time to write + execute code)
+    FILE_KEYWORDS = ["создай", "сделай", "сгенерируй", "create", "make", "generate",
+                     "презентац", "presentation", "файл", "file", "document", "код", "code"]
+    msg_lower = (user_message or "").lower()
+    timeout = 300 if any(kw in msg_lower for kw in FILE_KEYWORDS) else 120
+    response = await run_claude(prompt, timeout, image_path=image_path)
 
     # Resolve challenge after Claude evaluates
     if answering_challenge:
