@@ -6,7 +6,7 @@ import asyncio
 import logging
 import urllib.request
 import urllib.parse
-from src.config import WORK_DIR, WHISPER_MODEL
+from src.config import WORK_DIR, WHISPER_MODEL, TAVILY_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +32,49 @@ async def transcribe_audio(ogg_path: str, language: str = "ru") -> str:
     return result["text"].strip()
 
 
-async def web_search(query: str) -> str:
-    """Поиск через DuckDuckGo Instant Answer API"""
+def _tavily_search_sync(query: str, max_results: int = 5) -> str:
+    """Search via Tavily API — returns summarized context for AI."""
+    payload = json.dumps({
+        "api_key": TAVILY_API_KEY,
+        "query": query,
+        "max_results": max_results,
+        "search_depth": "basic"
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.tavily.com/search",
+        data=payload, method="POST",
+        headers={"Content-Type": "application/json"}
+    )
+    resp = urllib.request.urlopen(req, timeout=15)
+    data = json.loads(resp.read())
+    results = []
+    for r in data.get("results", []):
+        results.append(f"[{r['title']}]: {r['content'][:300]}")
+    return "\n\n".join(results)
+
+
+def _ddg_search_sync(query: str) -> str:
+    """Fallback: DuckDuckGo Instant Answers."""
     url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(query)}&format=json&no_html=1&skip_disambig=1"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read())
+    results = []
+    if data.get("AbstractText"):
+        results.append(data["AbstractText"])
+    for r in data.get("RelatedTopics", [])[:5]:
+        if isinstance(r, dict) and r.get("Text"):
+            results.append(r["Text"])
+    return "\n".join(results)
+
+
+async def web_search(query: str) -> str:
+    """Web search — Tavily if available, DuckDuckGo fallback."""
+    loop = asyncio.get_event_loop()
     try:
-        loop = asyncio.get_event_loop()
-        def _fetch():
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return json.loads(resp.read())
-        data = await loop.run_in_executor(None, _fetch)
-        results = []
-        if data.get("AbstractText"):
-            results.append(data["AbstractText"])
-        for r in data.get("RelatedTopics", [])[:5]:
-            if isinstance(r, dict) and r.get("Text"):
-                results.append(r["Text"])
-        return "\n".join(results) if results else ""
+        if TAVILY_API_KEY:
+            return await loop.run_in_executor(None, _tavily_search_sync, query)
+        return await loop.run_in_executor(None, _ddg_search_sync, query)
     except Exception as e:
         logger.warning(f"web_search error: {e}")
         return ""

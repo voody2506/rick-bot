@@ -21,6 +21,9 @@ TTS_ENABLED = os.getenv("TTS_ENABLED", "false").lower() == "true"
 FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "")
 FISH_AUDIO_VOICE_ID = os.getenv("FISH_AUDIO_VOICE_ID", "d2e75a3e3fd6419893057c02a375a113")
 
+# Web Search (Tavily)
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+
 BASE_DIR = Path(os.getenv("BASE_DIR", str(Path(__file__).resolve().parent.parent)))
 MEMORY_DIR = BASE_DIR / "memory"
 WORK_DIR = BASE_DIR / "work"
