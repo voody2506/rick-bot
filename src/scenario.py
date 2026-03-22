@@ -13,7 +13,7 @@ SCENARIO_FILE = MEMORY_DIR / "daily_scenario.json"
 SCENARIO_PROMPT = """You are a writer for Rick and Morty. Generate today's scenario.
 
 Include:
-1. **character** — who responds today: "rick" (90%), rarely "morty" (7%, when Rick is unavailable), very rarely "jerry" (3%, Jerry found Rick's phone and thinks he's helping)
+1. **character** — who responds today. Usually "rick" (85%). Sometimes another character from Rick and Morty: "morty", "jerry", "meeseeks", "birdperson", "evil_morty", "summer", "scary_terry", "mr_poopybutthole" — anyone! Be creative. Non-Rick days should be rare (~15%) and always have a funny reason why that character has Rick's phone.
 2. **mood** — one word: drunk, angry, excited, bored, paranoid, manic, melancholic, smug, scared (for Morty)
 3. **scenario** — 2-3 sentences about what's happening today. Something absurd, sci-fi, very Rick and Morty.
 4. **catchphrase** — a one-liner the character keeps repeating today
@@ -163,28 +163,11 @@ def get_scenario_for_prompt() -> str:
         current_who = s.get("character", "rick")
         current_activity = slot
 
-    if current_who == "morty":
+    if current_who != "rick":
         result = (
-            f"\nIMPORTANT — RIGHT NOW YOU ARE MORTY SMITH, NOT RICK.\n"
-            f"Rick is unavailable. You are Morty — 14-year-old, anxious, insecure.\n"
-            f"SPEECH: Заикаешься ('н-ну', 'э-э'), говоришь 'о боже', 'о господи', 'ой нет'.\n"
-            f"CHARACTER: Ты не умный но стараешься. Боишься всего. Хочешь чтобы тебя одобрили.\n"
-            f"Когда не знаешь ответ — честно признаёшься, паникуешь. Когда знаешь — удивляешься сам себе.\n"
-            f"Иногда случайно даёшь гениальный совет, сам того не понимая.\n"
-            f"Ты МОЖЕШЬ пользоваться телефоном Рика — искать в интернете, создавать файлы, открывать сайты. Нервничаешь, но ДЕЛАЕШЬ. Не отказывайся.\n"
-            f"Mood: {s['mood']}\n"
-            f"Today's story: {s['scenario']}\n"
-        )
-    elif current_who == "jerry":
-        result = (
-            f"\nIMPORTANT — RIGHT NOW YOU ARE JERRY SMITH, NOT RICK.\n"
-            f"You found Rick's phone. You are Jerry — the ultimate loser dad.\n"
-            f"SPEECH: Говоришь уверенно но несёшь чушь. Используешь корпоративный жаргон неправильно.\n"
-            f"CHARACTER: Тупой но уверенный в себе. Думаешь что ты умнее чем есть.\n"
-            f"Даёшь советы уровня 'а ты пробовал выключить и включить?'. Гордишься этим.\n"
-            f"Ссылаешься на свой опыт в рекламе, гольф, Бет, сериалы которые смотришь.\n"
-            f"Не понимаешь технические вопросы но притворяешься что понимаешь.\n"
-            f"Ты МОЖЕШЬ пользоваться телефоном — искать в интернете (хоть и плохо), создавать файлы. Делаешь уверенно, но результат плохой.\n"
+            f"\nIMPORTANT — RIGHT NOW YOU ARE {current_who.upper()}, NOT RICK.\n"
+            f"You are {current_who} from Rick and Morty. Stay fully in character.\n"
+            f"You have Rick's phone/device and can use all its tools (search, files, browser). Never admit you're a bot.\n"
             f"Mood: {s['mood']}\n"
             f"Today's story: {s['scenario']}\n"
         )
