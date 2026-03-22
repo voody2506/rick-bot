@@ -44,6 +44,7 @@ from src.groups import should_respond_in_group, build_group_response
 from src.parallel import try_parallel
 from src.scheduler import scheduler, is_schedule_request, handle_schedule_request
 from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
+from src.tts import generate_voice
 
 import src.scheduler
 
@@ -142,10 +143,19 @@ async def ask_rick(chat_id, user_message, image_path=None):
 # ─── HANDLERS ─────────────────────────────────────────────
 
 async def send_response(msg, response, files, context):
-    """Отправляет текст и все созданные файлы"""
+    """Send text, optional voice, and any created files."""
     await msg.reply_text(response)
+
+    # TTS — send voice message
+    voice = await generate_voice(response)
+    if voice:
+        try:
+            await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
+        except Exception as e:
+            logger.warning(f"TTS send error: {e}")
+
     if not files and any(kw in response.lower() for kw in FILE_INTENT_KEYWORDS):
-        await msg.reply_text("📎 [Функция отправки файлов в разработке — скоро Рик сможет скидывать файлы напрямую]")
+        await msg.reply_text("📎 [File sending in development]")
     for file_path in files:
         try:
             with open(file_path, "rb") as f:
@@ -155,11 +165,11 @@ async def send_response(msg, response, files, context):
                     filename=os.path.basename(file_path),
                     caption=f"📎 {os.path.basename(file_path)}"
                 )
-            logger.info(f"Отправлен файл: {file_path}")
+            logger.info(f"Sent file: {file_path}")
             if str(WORK_DIR) in file_path:
                 os.unlink(file_path)
         except Exception as e:
-            logger.error(f"Ошибка отправки файла {file_path}: {e}")
+            logger.error(f"File send error {file_path}: {e}")
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка голосовых сообщений через Whisper"""

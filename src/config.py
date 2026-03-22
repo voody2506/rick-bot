@@ -16,6 +16,11 @@ MAX_FACTS = int(os.getenv("MAX_FACTS", "50"))
 GROUP_RANDOM_CHANCE = float(os.getenv("GROUP_RANDOM_CHANCE", "0.07"))
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny")
 
+# TTS (Fish Audio)
+TTS_ENABLED = os.getenv("TTS_ENABLED", "false").lower() == "true"
+FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "")
+FISH_AUDIO_VOICE_ID = os.getenv("FISH_AUDIO_VOICE_ID", "d2e75a3e3fd6419893057c02a375a113")
+
 BASE_DIR = Path(os.getenv("BASE_DIR", str(Path(__file__).resolve().parent.parent)))
 MEMORY_DIR = BASE_DIR / "memory"
 WORK_DIR = BASE_DIR / "work"
