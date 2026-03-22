@@ -14,12 +14,16 @@ A Telegram bot that roleplays as Rick Sanchez from Rick and Morty, powered by Cl
 
 - **Rick Sanchez personality** — sarcastic, genius-level responses in character
 - **Voice input** — transcribes voice messages via Whisper
-- **Voice responses** — Rick occasionally sends voice messages via Fish Audio TTS
+- **Voice responses** — Rick occasionally sends voice messages via Fish Audio TTS (7% chance)
 - **Photo analysis** — analyzes images using Claude's vision
 - **Web search** — real-time search via Tavily (DuckDuckGo fallback)
 - **Group chats** — context-aware responses, @mentions participants
 - **Three-tier memory** — conversation history + episodic summaries + user profiles
 - **Time awareness** — Rick knows the current date and references past conversations
+- **Emoji reactions** — Rick reacts to messages with mood-based emojis (20% chance)
+- **Stickers** — sends Rick & Morty stickers by mood (10% chance)
+- **GIFs** — searches and sends relevant Rick & Morty GIFs (5% chance)
+- **Markdown formatting** — code blocks, bold, italic in responses
 - **Parallel tasks** — splits complex requests into subtasks
 - **Scheduled tasks** — reminders and recurring tasks via APScheduler
 - **Skills system** — extensible via ClawHub skills marketplace
@@ -83,11 +87,14 @@ src/
 ├── config.py       # Environment-based configuration
 ├── groups.py       # Group chat logic and response decisions
 ├── media.py        # Voice (Whisper), web search (Tavily), files
+├── memes.py        # GIF reactions via Tavily image search
 ├── memory.py       # Three-tier memory: history, summaries, profiles
 ├── parallel.py     # Parallel task decomposition
 ├── prompts.py      # All system and task prompts
+├── reactions.py    # Emoji reactions on user messages
 ├── scheduler.py    # APScheduler for reminders
 ├── skills.py       # ClawHub skills marketplace integration
+├── stickers.py     # Rick & Morty sticker responses by mood
 └── tts.py          # Text-to-Speech via Fish Audio
 ```
 
