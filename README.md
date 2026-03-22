@@ -8,20 +8,26 @@
 [![CI/CD](https://github.com/voody2506/rick-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/voody2506/rick-bot/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Telegram bot that roleplays as Rick Sanchez from Rick and Morty, powered by Claude AI. Supports text, voice messages, photo analysis, scheduled tasks, and group chats.
+A Telegram bot that roleplays as Rick Sanchez from Rick and Morty, powered by Claude AI. Supports text, voice messages (input & output), photo analysis, web search, scheduled tasks, and group chats with persistent memory.
 
 ## Features
 
 - **Rick Sanchez personality** — sarcastic, genius-level responses in character
-- **Voice messages** — transcribes via Whisper and responds
+- **Voice input** — transcribes voice messages via Whisper
+- **Voice responses** — Rick occasionally sends voice messages via Fish Audio TTS
 - **Photo analysis** — analyzes images using Claude's vision
+- **Web search** — real-time search via Tavily (DuckDuckGo fallback)
 - **Group chats** — context-aware responses, @mentions participants
-- **Memory** — remembers conversation history and facts about users
+- **Three-tier memory** — conversation history + episodic summaries + user profiles
+- **Time awareness** — Rick knows the current date and references past conversations
 - **Parallel tasks** — splits complex requests into subtasks
 - **Scheduled tasks** — reminders and recurring tasks via APScheduler
 - **Skills system** — extensible via ClawHub skills marketplace
 - **Auto language** — responds in the user's language
 - **Dual Claude mode** — Anthropic API or Claude CLI fallback
+- **Rate limiting** — protects against spam (10 msg/min per user)
+- **Reply context** — Rick sees what message you're replying to
+- **CI/CD** — auto-deploy via GitHub Actions + GHCR + Docker
 
 ## Quick Start
 
@@ -57,6 +63,10 @@ A Telegram bot that roleplays as Rick Sanchez from Rick and Morty, powered by Cl
 | `MAX_FACTS` | No | `50` | Max facts remembered per chat |
 | `GROUP_RANDOM_CHANCE` | No | `0.07` | Chance Rick interjects in groups (0-1) |
 | `WHISPER_MODEL` | No | `tiny` | Whisper model: tiny/base/small/medium/large |
+| `TTS_ENABLED` | No | `false` | Enable voice responses |
+| `FISH_AUDIO_API_KEY` | No | — | Fish Audio API key for TTS |
+| `FISH_AUDIO_VOICE_ID` | No | `d2e75a3e...` | Fish Audio voice model ID |
+| `TAVILY_API_KEY` | No | — | Tavily API key for web search (recommended) |
 
 ### Claude Authentication
 
@@ -72,13 +82,24 @@ src/
 ├── claude.py       # Dual-mode Claude client (SDK + CLI)
 ├── config.py       # Environment-based configuration
 ├── groups.py       # Group chat logic and response decisions
-├── media.py        # Voice (Whisper), vision, web search, files
-├── memory.py       # Chat history and facts persistence
+├── media.py        # Voice (Whisper), web search (Tavily), files
+├── memory.py       # Three-tier memory: history, summaries, profiles
 ├── parallel.py     # Parallel task decomposition
 ├── prompts.py      # All system and task prompts
 ├── scheduler.py    # APScheduler for reminders
-└── skills.py       # ClawHub skills marketplace integration
+├── skills.py       # ClawHub skills marketplace integration
+└── tts.py          # Text-to-Speech via Fish Audio
 ```
+
+### Memory System
+
+Rick has a three-tier memory system:
+
+1. **Working memory** — last 20 messages in the current conversation
+2. **Episodic memory** — conversation summaries with timestamps, stored when history fills up
+3. **User profile** — structured knowledge (name, language, interests, communication style), updated automatically
+
+This lets Rick reference past conversations and remember user preferences across sessions.
 
 ## Bot Commands
 
