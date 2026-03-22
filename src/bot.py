@@ -48,6 +48,7 @@ from src.tts import generate_voice
 from src.memes import maybe_send_gif
 from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
+from src.scenario import get_scenario_for_prompt, generate_daily_scenario, load_scenario
 
 import src.scheduler
 
@@ -91,7 +92,10 @@ def build_prompt(chat_id, user_message):
 
     # Time awareness
     now = datetime.now()
-    prompt += f"Current date/time: {now.strftime('%Y-%m-%d %H:%M, %A')}\n\n"
+    prompt += f"Current date/time: {now.strftime('%Y-%m-%d %H:%M, %A')}\n"
+
+    # Daily scenario — global mood and storyline
+    prompt += get_scenario_for_prompt() + "\n"
 
     # User profile
     if profile:
@@ -686,8 +690,21 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def post_init(application):
     src.scheduler._app = application
     scheduler.start()
+
+    # Generate daily scenario on startup if not exists for today
+    s = load_scenario()
+    if not s.get("scenario"):
+        asyncio.create_task(generate_daily_scenario())
+
+    # Schedule daily scenario generation at random time between 6-10 AM
+    from apscheduler.triggers.cron import CronTrigger
+    scheduler.add_job(
+        generate_daily_scenario, CronTrigger(hour=8, minute=0),
+        id="daily_scenario", replace_existing=True
+    )
+
     me = await application.bot.get_me()
-    logger.info(f"@{me.username} — Rick v10.1 online (scheduler started, per-chat skills, OWNER_ID)")
+    logger.info(f"@{me.username} — Rick v10.1 online (scheduler started, daily scenario)")
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)

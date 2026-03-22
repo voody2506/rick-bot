@@ -2,11 +2,12 @@
 from src.memory import group_context, group_members, load_facts
 from src.prompts import GROUP_SYSTEM
 from src.claude import run_claude
+from src.scenario import get_scenario_for_prompt
 
 SKIP_TOKEN = "SKIP"
 
 GROUP_COMBINED_PROMPT = """{system}
-
+{scenario}
 Chat context:
 {context}
 
@@ -27,10 +28,11 @@ async def maybe_respond_in_group(chat_id, username, user_message):
         system += "\n\nKnown facts about participants:\n" + "\n".join(f"- {f}" for f in facts[:10])
     members_list = format_members_for_prompt(chat_id)
 
+    scenario = get_scenario_for_prompt()
     response = await run_claude(
         GROUP_COMBINED_PROMPT.format(
-            system=system, context=context_str, members_list=members_list,
-            username=username, message=user_message
+            system=system, scenario=scenario, context=context_str,
+            members_list=members_list, username=username, message=user_message
         ), 60
     )
 
