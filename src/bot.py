@@ -49,6 +49,7 @@ from src.scheduler import scheduler, is_schedule_request, handle_schedule_reques
 from src.skills import load_skills_for_chat, search_clawhub, install_clawhub_skill
 from src.tts import generate_voice
 from src.memes import maybe_get_meme
+from src.reactions import pick_reaction, set_reaction
 
 import src.scheduler
 
@@ -467,6 +468,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Rate limiting
     if user and is_rate_limited(user.id):
         return
+
+    # React to user's message
+    emoji = pick_reaction(user_text)
+    if emoji:
+        await set_reaction(context.bot, chat_id, msg.message_id, emoji)
 
     # Inject reply context (#7)
     if msg.reply_to_message and msg.reply_to_message.text and not msg.reply_to_message.photo:
