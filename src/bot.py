@@ -51,6 +51,7 @@ from src.tts import generate_voice
 from src.memes import maybe_send_gif
 from src.reactions import pick_reaction, set_reaction
 from src.stickers import pick_sticker
+from src.browser import browse_url
 
 import src.scheduler
 
@@ -633,8 +634,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 response, files = await ask_rick(chat_id, user_text)
     else:
+        # Browse URL if message contains one
+        url_match = re.search(r'https?://[^\s]+', user_text)
+        screenshot = None
+        if url_match:
+            url = url_match.group(0)
+            logger.info(f"Browsing URL: {url}")
+            screenshot, page_text = await browse_url(url)
+            if page_text:
+                user_text = f"{user_text}\n\n[Page content from {url}]:\n{page_text[:2000]}"
         response, files = await ask_rick(chat_id, user_text)
     typing.cancel()
+
+    if screenshot:
+        try:
+            await context.bot.send_photo(chat_id=msg.chat_id, photo=screenshot, caption="🖥 Screenshot")
+        except Exception as e:
+            logger.warning(f"Screenshot send error: {e}")
 
     await send_response(msg, response, files, context)
 
