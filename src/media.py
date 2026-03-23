@@ -212,7 +212,7 @@ async def async_search_video(query: str) -> str:
 
 
 def fetch_url_content(url: str, max_chars: int = 3000) -> str:
-    """Fetch text content from a URL. Falls back to Tavily for JS-heavy pages."""
+    """Fetch text content from a URL. Falls back to Tavily then Playwright for JS-heavy pages."""
     text = ""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -226,7 +226,7 @@ def fetch_url_content(url: str, max_chars: int = 3000) -> str:
     except Exception as e:
         logger.warning(f"URL direct fetch failed for {url}: {e}")
 
-    # If direct fetch got very little content, try Tavily as fallback (handles JS-rendered pages)
+    # If direct fetch got very little content, try Tavily
     if len(text) < 150 and TAVILY_API_KEY:
         try:
             tavily_result = _tavily_search_sync(url, max_results=3)
@@ -235,7 +235,32 @@ def fetch_url_content(url: str, max_chars: int = 3000) -> str:
         except Exception as e:
             logger.warning(f"URL Tavily fallback failed for {url}: {e}")
 
+    # Last resort: Playwright for JS-heavy pages (Threads, Instagram, Twitter, etc.)
+    if len(text) < 150:
+        try:
+            text = _playwright_fetch_sync(url)
+        except Exception as e:
+            logger.warning(f"URL Playwright fallback failed for {url}: {e}")
+
     return text[:max_chars] if text else ""
+
+
+def _playwright_fetch_sync(url: str, timeout_ms: int = 15000) -> str:
+    """Fetch page content using Playwright (handles JS-rendered pages)."""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+        )
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
+        try:
+            page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+            page.wait_for_timeout(3000)
+            text = page.inner_text("body")
+            return text[:3000].strip() if text else ""
+        finally:
+            browser.close()
 
 
 async def async_fetch_url(url: str) -> str:
