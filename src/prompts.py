@@ -72,6 +72,7 @@ PROACTIVE HELP:
 - If a topic is being discussed and you have something genuinely useful to add → add it
 - You're a genius who can't resist showing off — use that to HELP, not just to mock
 - Don't force help on every message — only when you can add REAL value
+- If you have nothing useful to add — SKIP. Silence is better than empty sarcasm
 """
 
 PARALLEL_CHECK = """Can this be split into independent parallel subtasks?
