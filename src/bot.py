@@ -11,7 +11,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters
 
 from src.config import BOT_TOKEN, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
-from src.handlers import handle_message, handle_voice, handle_photo, handle_document
+from src.handlers import handle_message, handle_voice, handle_photo, handle_video, handle_document
 from src.commands import (start_command, reset_command, forget_command,
                           skill_command, schedule_command, news_command)
 from src.scheduler import scheduler
@@ -74,6 +74,7 @@ def main():
     app.add_handler(CommandHandler("news", news_command))
     app.add_handler(CommandHandler("schedule", schedule_command))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    app.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, handle_video))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

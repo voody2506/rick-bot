@@ -15,7 +15,7 @@ from src.config import WORK_DIR, RICK_NAMES, GROUP_RANDOM_CHANCE
 from src.memory import (group_context, group_members,
                         group_recent_photos, init_chat)
 from src.claude import run_claude
-from src.media import transcribe_audio
+from src.media import transcribe_audio, extract_video_frames, extract_video_audio
 from src.groups import maybe_respond_in_group
 from src.reactions import pick_reaction, set_reaction
 from src.core import ask_rick, send_response, send_text, is_rate_limited
@@ -122,6 +122,107 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         init_chat(chat_id)
         response, files = await ask_rick(chat_id, user_message)
         await send_response(msg, response, files, context)
+
+
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle video and video_note messages — extract frames + transcribe audio."""
+    msg = update.message
+    if not msg:
+        return
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    is_group = update.effective_chat.type in ["group", "supergroup"]
+    username = user.first_name if user else "Someone"
+
+    if user and is_group:
+        group_members[chat_id][user.id] = {
+            "name": user.first_name or user.username or "Morty",
+            "username": user.username
+        }
+
+    if is_group:
+        group_context[chat_id].append(f"{username}: [video]")
+        bot_username = context.bot.username or ""
+        caption = msg.caption or ""
+        caption_lower = caption.lower()
+        reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
+                       and msg.reply_to_message.from_user.username == bot_username)
+        has_rick = "рик" in caption_lower or "rick" in caption_lower or bool(
+            bot_username and f"@{bot_username.lower()}" in caption_lower)
+        if not has_rick and not reply_to_bot:
+            return
+
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    # Download video
+    video = msg.video or msg.video_note
+    if not video:
+        return
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    video_path = str(WORK_DIR / f"video_{chat_id}_{video.file_id[:8]}.mp4")
+    try:
+        file = await context.bot.get_file(video.file_id)
+        await file.download_to_drive(video_path)
+    except Exception as e:
+        logger.warning(f"Video download failed: {e}")
+        await msg.reply_text("burp Video won't download. Send it again, Morty.")
+        return
+
+    async def keep_typing():
+        for _ in range(30):
+            await asyncio.sleep(4)
+            try: await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+            except Exception: break
+
+    typing = asyncio.create_task(keep_typing())
+
+    try:
+        # Extract frames and audio in parallel
+        loop = asyncio.get_running_loop()
+        frames_future = loop.run_in_executor(None, extract_video_frames, video_path, 4)
+        audio_future = loop.run_in_executor(None, extract_video_audio, video_path)
+        frame_paths, audio_path = await asyncio.gather(frames_future, audio_future)
+
+        # Transcribe audio if available
+        transcript = ""
+        if audio_path:
+            try:
+                transcript = await transcribe_audio(audio_path)
+            except Exception as e:
+                logger.warning(f"Video audio transcription failed: {e}")
+
+        # Build prompt
+        caption = msg.caption or ""
+        parts = []
+        if transcript:
+            parts.append(f"Audio transcript: \"{transcript}\"")
+        if caption:
+            parts.append(f"User's caption: \"{caption}\"")
+        parts.append(f"{len(frame_paths)} frames extracted from the video are attached.")
+        parts.append("Describe what's happening in this video. React to both visuals and audio.")
+
+        if is_group:
+            context_lines = list(group_context.get(chat_id, []))
+            context_str = "\n".join(context_lines[-8:]) if context_lines else "(no context)"
+            vision_prompt = f"Chat context:\n{context_str}\n\n{username} sent a video.\n" + "\n".join(parts)
+        else:
+            init_chat(chat_id)
+            vision_prompt = "\n".join(parts)
+
+        response = await run_claude(vision_prompt, 120, image_paths=frame_paths)
+
+        if is_group:
+            group_context[chat_id].append(f"Rick: {response[:300]}")
+
+        typing.cancel()
+        await send_response(msg, response, [], context)
+
+    finally:
+        # Cleanup temp files
+        for path in [video_path] + (frame_paths or []) + ([audio_path] if audio_path else []):
+            try: os.unlink(path)
+            except Exception: pass
+        typing.cancel()
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):

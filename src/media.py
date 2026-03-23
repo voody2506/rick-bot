@@ -1,9 +1,10 @@
-"""Media handling — vision, voice (Whisper), web search, file helpers."""
+"""Media handling — vision, voice (Whisper), video, web search, file helpers."""
 import os
 import re
 import json
 import asyncio
 import logging
+import subprocess
 import urllib.request
 import urllib.parse
 from src.config import WORK_DIR, WHISPER_MODEL, TAVILY_API_KEY
@@ -30,6 +31,69 @@ async def transcribe_audio(ogg_path: str, language: str = "ru") -> str:
         None, lambda: model.transcribe(ogg_path, language=language)
     )
     return result["text"].strip()
+
+
+def extract_video_frames(video_path: str, max_frames: int = 4) -> list[str]:
+    """Extract key frames from video using ffmpeg. Returns list of image paths."""
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    base = os.path.splitext(os.path.basename(video_path))[0]
+    frame_paths = []
+
+    # Get video duration
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", video_path],
+            capture_output=True, text=True, timeout=10
+        )
+        duration = float(probe.stdout.strip() or "0")
+    except Exception:
+        duration = 0
+
+    if duration <= 0:
+        # Fallback: just grab first frame
+        out = str(WORK_DIR / f"{base}_frame_0.jpg")
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", video_path, "-frames:v", "1", "-q:v", "3", out],
+            capture_output=True, timeout=15
+        )
+        if os.path.exists(out):
+            frame_paths.append(out)
+        return frame_paths
+
+    # Extract evenly spaced frames
+    n = min(max_frames, max(1, int(duration // 2)))
+    interval = duration / (n + 1)
+    for i in range(n):
+        ts = interval * (i + 1)
+        out = str(WORK_DIR / f"{base}_frame_{i}.jpg")
+        subprocess.run(
+            ["ffmpeg", "-y", "-ss", f"{ts:.1f}", "-i", video_path,
+             "-frames:v", "1", "-q:v", "3", out],
+            capture_output=True, timeout=15
+        )
+        if os.path.exists(out):
+            frame_paths.append(out)
+    return frame_paths
+
+
+def extract_video_audio(video_path: str) -> str | None:
+    """Extract audio track from video as ogg. Returns path or None."""
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    base = os.path.splitext(os.path.basename(video_path))[0]
+    audio_path = str(WORK_DIR / f"{base}_audio.ogg")
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "libopus", audio_path],
+            capture_output=True, timeout=30
+        )
+        if result.returncode == 0 and os.path.exists(audio_path):
+            # Skip if audio is too small (no real audio track)
+            if os.path.getsize(audio_path) > 1000:
+                return audio_path
+    except Exception as e:
+        logger.warning(f"Video audio extraction failed: {e}")
+    return None
 
 
 def _tavily_search_sync(query: str, max_results: int = 5) -> str:

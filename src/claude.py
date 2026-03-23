@@ -9,9 +9,9 @@ from src.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_TIMEOUT, WORK_DIR
 logger = logging.getLogger(__name__)
 
 
-def run_claude_sync(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str = None) -> str:
+def run_claude_sync(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str = None, image_paths: list = None) -> str:
     if ANTHROPIC_API_KEY:
-        return _run_sdk_sync(prompt, timeout, image_path)
+        return _run_sdk_sync(prompt, timeout, image_path, image_paths)
     return _run_cli_sync(prompt, timeout, image_path)
 
 
@@ -26,17 +26,20 @@ def _get_client():
     return _client
 
 
-def _run_sdk_sync(prompt: str, timeout: int, image_path: str = None) -> str:
+def _run_sdk_sync(prompt: str, timeout: int, image_path: str = None, image_paths: list = None) -> str:
     """Anthropic SDK mode."""
     client = _get_client()
     content = []
-    if image_path and os.path.exists(image_path):
-        with open(image_path, "rb") as f:
-            data = base64.standard_b64encode(f.read()).decode("utf-8")
-        content.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": "image/jpeg", "data": data}
-        })
+    # Support single image_path or multiple image_paths
+    paths = image_paths or ([image_path] if image_path else [])
+    for path in paths:
+        if path and os.path.exists(path):
+            with open(path, "rb") as f:
+                data = base64.standard_b64encode(f.read()).decode("utf-8")
+            content.append({
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/jpeg", "data": data}
+            })
     content.append({"type": "text", "text": prompt})
     try:
         resp = client.messages.create(
@@ -86,6 +89,6 @@ def _build_vision_cli_prompt(user_question: str, image_path: str) -> str:
     )
 
 
-async def run_claude(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str = None) -> str:
+async def run_claude(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str = None, image_paths: list = None) -> str:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, run_claude_sync, prompt, timeout, image_path)
+    return await loop.run_in_executor(None, run_claude_sync, prompt, timeout, image_path, image_paths)
