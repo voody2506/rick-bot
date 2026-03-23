@@ -273,7 +273,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "name": user.first_name or user.username or "Morty",
                 "username": user.username
             }
-        group_context[chat_id].append(f"{username}: {user_text[:100]}")
+        group_context[chat_id].append(f"{username}: {user_text[:300]}")
 
         bot_username = context.bot.username or ""
         text_lower = user_text.lower()
@@ -359,7 +359,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             group_context[chat_id].append(f"Rick: {response[:100]}")
         elif directly_addressed:
             # Directly addressed — full prompt with file creation support
-            response, files = await ask_rick(chat_id, user_text)
+            ctx_lines = list(group_context.get(chat_id, []))[-8:]
+            response, files = await ask_rick(chat_id, user_text, group_context_lines=ctx_lines)
             group_context[chat_id].append(f"Rick: {response[:100]}")
         else:
             # Random interjection — lightweight prompt

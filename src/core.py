@@ -71,7 +71,7 @@ async def extract_and_save_facts(chat_id, user_msg, rick_response):
 
 # --- CORE LOGIC ---
 
-def build_prompt(chat_id, user_message):
+def build_prompt(chat_id, user_message, group_context_lines=None):
     history = list(chat_histories[chat_id])
     facts = load_facts(chat_id)
     summaries = load_summaries(chat_id)
@@ -125,6 +125,13 @@ def build_prompt(chat_id, user_message):
             if i < len(history): prompt += f"User: {history[i]}\n"
             if i+1 < len(history): prompt += f"Rick: {history[i+1]}\n"
         prompt += "\n"
+    # Group chat context — recent messages from the group
+    if group_context_lines:
+        prompt += "Recent group chat messages:\n"
+        for line in group_context_lines:
+            prompt += f"  {line}\n"
+        prompt += "\nIMPORTANT: React to the conversation context above. If the user asks to 'comment on the situation', 'what do you think', etc. — they mean the topic being discussed in recent messages. ALWAYS engage with the actual content.\n\n"
+
     # Proactive callback — bring up old facts ~15% of the time
     if facts and random.random() < 0.15:
         random_fact = random.choice(facts)
@@ -140,7 +147,7 @@ def build_prompt(chat_id, user_message):
     return prompt
 
 
-async def ask_rick(chat_id, user_message, image_path=None):
+async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=None):
     init_chat(chat_id)
     start_time = time.time()
     update_mood(chat_id, user_message or "")
@@ -148,7 +155,8 @@ async def ask_rick(chat_id, user_message, image_path=None):
     answering_challenge = has_pending_challenge(chat_id)
 
     # Build full prompt with context — even for photos (fixes missing context bug)
-    prompt = build_prompt(chat_id, user_message or "What's in this photo? Describe it Rick-style.")
+    prompt = build_prompt(chat_id, user_message or "What's in this photo? Describe it Rick-style.",
+                          group_context_lines=group_context_lines)
 
     # Longer timeout for file creation requests (CLI needs time to write + execute code)
     FILE_KEYWORDS = ["создай", "сделай", "сгенерируй", "create", "make", "generate",
