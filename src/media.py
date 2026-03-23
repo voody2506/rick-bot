@@ -119,6 +119,63 @@ def extract_document_text(file_path: str, max_chars: int = 4000) -> str:
         return ""
 
 
+def search_and_download_image(query: str) -> str | None:
+    """Search for an image via Tavily and download it. Returns local path or None."""
+    if not TAVILY_API_KEY:
+        return None
+    try:
+        payload = json.dumps({
+            "api_key": TAVILY_API_KEY,
+            "query": query,
+            "max_results": 5,
+            "search_depth": "basic",
+            "include_images": True
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.tavily.com/search",
+            data=payload, method="POST",
+            headers={"Content-Type": "application/json"}
+        )
+        resp = urllib.request.urlopen(req, timeout=15)
+        data = json.loads(resp.read())
+        image_urls = data.get("images", [])
+        if not image_urls:
+            # Fallback: look for image URLs in results
+            for r in data.get("results", []):
+                url = r.get("url", "")
+                if any(ext in url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                    image_urls.append(url)
+        if not image_urls:
+            return None
+        # Download first valid image
+        WORK_DIR.mkdir(parents=True, exist_ok=True)
+        for img_url in image_urls[:3]:
+            try:
+                img_req = urllib.request.Request(img_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(img_req, timeout=10) as img_resp:
+                    img_data = img_resp.read()
+                if len(img_data) < 1000:
+                    continue
+                ext = ".jpg"
+                if ".png" in img_url.lower():
+                    ext = ".png"
+                path = str(WORK_DIR / f"img_search_{hash(query) % 100000}{ext}")
+                with open(path, "wb") as f:
+                    f.write(img_data)
+                return path
+            except Exception:
+                continue
+    except Exception as e:
+        logger.warning(f"Image search failed: {e}")
+    return None
+
+
+async def async_search_image(query: str) -> str | None:
+    """Async wrapper for image search."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, search_and_download_image, query)
+
+
 def fetch_url_content(url: str, max_chars: int = 3000) -> str:
     """Fetch text content from a URL. Returns extracted text or empty string."""
     try:

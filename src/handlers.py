@@ -17,7 +17,7 @@ from src.memory import (group_context, group_members,
 from src.claude import run_claude
 from src.media import (transcribe_audio, extract_video_frames, extract_video_audio,
                         async_fetch_url, extract_document_text)
-from src.groups import maybe_respond_in_group
+from src.groups import maybe_respond_in_group, pop_pending_image
 from src.reactions import pick_reaction, set_reaction
 from src.core import ask_rick, send_response, send_text, is_rate_limited
 
@@ -79,7 +79,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not response:
                 return
             group_context[chat_id].append(f"Rick: {response}")
-            await send_response(msg, response, [], context)
+            img = pop_pending_image(response)
+            await send_response(msg, response, [img] if img else [], context)
         else:
             init_chat(chat_id)
             response, files = await ask_rick(chat_id, f"[voice message]: {text}", user_id=user.id if user else None)
@@ -145,7 +146,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception: pass
             return
         group_context[chat_id].append(f"Rick: {response}")
-        await send_text(msg, response)
+        img = pop_pending_image(response)
+        await send_response(msg, response, [img] if img else [], context)
     else:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         init_chat(chat_id)
@@ -570,7 +572,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Random interjection — lightweight prompt
             group_response = await maybe_respond_in_group(chat_id, username, user_text)
             if group_response:
-                response, files = group_response, []
+                img = pop_pending_image(group_response)
+                response, files = group_response, ([img] if img else [])
                 group_context[chat_id].append(f"Rick: {group_response}")
             else:
                 typing.cancel()

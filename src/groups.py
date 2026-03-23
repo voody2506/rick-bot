@@ -2,6 +2,7 @@
 import re
 import logging
 from src.memory import group_context, group_members, load_facts, load_group_user_profiles
+from src.media import async_search_image
 from src.prompts import GROUP_SYSTEM
 from src.claude import run_claude
 from src.media import web_search, web_search_x
@@ -132,7 +133,31 @@ async def _handle_search_tokens(response, prompt):
         except Exception as e:
             logger.warning(f"Group code execution failed: {e}")
 
+    # IMAGE: token — store found image for caller to send
+    image_match = re.match(r'^IMAGE:\s*(.+)$', response.strip(), re.IGNORECASE)
+    if image_match:
+        query = image_match.group(1).strip()
+        logger.info(f"Group: Rick requested image search: {query}")
+        found_image = await async_search_image(query)
+        if found_image:
+            prompt += f"\n\n[Image found and will be sent. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
+            response = await run_claude(prompt, 60)
+            # Attach image path as attribute for caller
+            _pending_images[id(response)] = found_image
+        else:
+            prompt += f"\n\n[Image search found nothing. Tell user Rick-style. Do NOT output IMAGE: again.]\nRick:"
+            response = await run_claude(prompt, 60)
+
     return response
+
+
+# Temp storage for images found during group responses
+_pending_images: dict[int, str] = {}
+
+
+def pop_pending_image(response) -> str | None:
+    """Get and remove pending image for a group response."""
+    return _pending_images.pop(id(response), None)
 
 
 def format_members_for_prompt(chat_id) -> str:

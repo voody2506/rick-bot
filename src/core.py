@@ -18,7 +18,8 @@ from src.memory import (chat_histories, init_chat, save_history,
                         load_profile, save_profile,
                         save_user_profile)
 from src.claude import run_claude
-from src.media import find_created_files, find_new_workdir_files, run_generator_scripts, web_search, web_search_x
+from src.media import (find_created_files, find_new_workdir_files, run_generator_scripts,
+                        web_search, web_search_x, async_search_image)
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -235,6 +236,21 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             response = await run_claude(prompt, timeout, image_path=image_path)
         except Exception as e:
             logger.warning(f"Code execution failed: {e}")
+
+    # IMAGE: token — Rick wants to find and send an image
+    image_match = re.match(r'^IMAGE:\s*(.+)$', (response or "").strip(), re.IGNORECASE)
+    if image_match:
+        query = image_match.group(1).strip()
+        logger.info(f"Rick requested image search: {query}")
+        found_image = await async_search_image(query)
+        if found_image:
+            # Re-run Claude for a caption, add image to files
+            prompt += f"\n\n[Image found and will be sent to user. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
+            response = await run_claude(prompt, timeout)
+            files = [found_image]
+        else:
+            prompt += f"\n\n[Image search found nothing. Tell the user Rick-style. Do NOT output IMAGE: again.]\nRick:"
+            response = await run_claude(prompt, timeout)
 
     # Resolve challenge after Claude evaluates
     if answering_challenge:
