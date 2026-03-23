@@ -461,6 +461,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     typing = asyncio.create_task(keep_typing())
 
+    # Check: user replying to a video message?
+    reply_video = None
+    if msg.reply_to_message and (msg.reply_to_message.video or msg.reply_to_message.video_note):
+        reply_video = msg.reply_to_message.video or msg.reply_to_message.video_note
+
     if reply_photo_path:
         if msg.chat.type in ("group", "supergroup"):
             context_lines = list(group_context.get(chat_id, []))
@@ -477,6 +482,59 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             group_context[chat_id].append(f"Rick: {response}")
         typing.cancel()
         await send_response(msg, response, [], context)
+        return
+
+    if reply_video:
+        # Download video from replied message
+        video_path = str(WORK_DIR / f"reply_video_{chat_id}_{reply_video.file_id[:8]}.mp4")
+        try:
+            file = await context.bot.get_file(reply_video.file_id)
+            await file.download_to_drive(video_path)
+        except Exception as e:
+            logger.warning(f"Reply video download failed: {e}")
+            typing.cancel()
+            await msg.reply_text("burp Can't download that video, Morty.")
+            return
+
+        try:
+            loop = asyncio.get_running_loop()
+            frame_paths, audio_path = await asyncio.gather(
+                loop.run_in_executor(None, extract_video_frames, video_path, 4),
+                loop.run_in_executor(None, extract_video_audio, video_path)
+            )
+            transcript = ""
+            if audio_path:
+                try:
+                    transcript = await transcribe_audio(audio_path)
+                except Exception as e:
+                    logger.warning(f"Reply video transcription failed: {e}")
+
+            # Include replied message caption if any
+            reply_caption = msg.reply_to_message.caption or ""
+            parts = []
+            if transcript:
+                parts.append(f"Audio transcript: \"{transcript}\"")
+            if reply_caption:
+                parts.append(f"Video caption: \"{reply_caption}\"")
+            parts.append(f"{len(frame_paths)} frames from the video are attached.")
+            parts.append(f"{username} asks about this video: {user_text}")
+
+            if msg.chat.type in ("group", "supergroup"):
+                context_lines = list(group_context.get(chat_id, []))
+                context_str = "\n".join(context_lines) if context_lines else "(no context)"
+                vision_prompt = f"Chat context:\n{context_str}\n\n" + "\n".join(parts)
+            else:
+                vision_prompt = "\n".join(parts)
+
+            response = await run_claude(vision_prompt, 120, image_paths=frame_paths)
+            if msg.chat.type in ("group", "supergroup"):
+                group_context[chat_id].append(f"Rick: {response}")
+            typing.cancel()
+            await send_response(msg, response, [], context)
+        finally:
+            for path in [video_path] + (frame_paths or []) + ([audio_path] if audio_path else []):
+                try: os.unlink(path)
+                except Exception: pass
         return
 
     # Group messages
