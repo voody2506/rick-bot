@@ -8,6 +8,6 @@ services:
       - ./work:/app/work
       - ./skills:/app/skills
       - ./tokens:/app/tokens
-      - ${CLAUDE_HOME:-${HOME}/.claude}:/home/botuser/.claude:ro
-      - ${CLAUDE_JSON:-${HOME}/.claude.json}:/home/botuser/.claude.json:ro
+      - ${CLAUDE_HOME:-${HOME}/.claude}:/home/botuser/.claude
+      - ${CLAUDE_JSON:-${HOME}/.claude.json}:/home/botuser/.claude.json
     restart: unless-stopped
