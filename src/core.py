@@ -17,7 +17,7 @@ from src.memory import (chat_histories, init_chat, save_history,
                         load_facts, save_facts, load_summaries, save_summary,
                         load_profile, save_profile)
 from src.claude import run_claude
-from src.media import find_created_files, find_new_workdir_files, run_generator_scripts, web_search
+from src.media import find_created_files, find_new_workdir_files, run_generator_scripts, web_search, web_search_x
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -165,15 +165,50 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
     timeout = 300 if any(kw in msg_lower for kw in FILE_KEYWORDS) else 120
     response = await run_claude(prompt, timeout, image_path=image_path)
 
-    # SEARCH: token — Rick requested web search, fetch results and re-run
-    search_match = re.match(r'^SEARCH:\s*(.+)$', (response or "").strip(), re.IGNORECASE)
-    if search_match:
+    # Search tokens — Rick can request web/X/deep search
+    response_stripped = (response or "").strip()
+    search_match = re.match(r'^SEARCH:\s*(.+)$', response_stripped, re.IGNORECASE)
+    search_x_match = re.match(r'^SEARCH_X:\s*(.+)$', response_stripped, re.IGNORECASE)
+    research_match = re.match(r'^RESEARCH:\s*(.+)$', response_stripped, re.IGNORECASE)
+
+    if research_match:
+        query = research_match.group(1).strip()
+        logger.info(f"Rick requested RESEARCH: {query}")
+        try:
+            web_results, x_results = await asyncio.gather(
+                web_search(query),
+                web_search_x(query),
+                return_exceptions=True
+            )
+            web_text = web_results if isinstance(web_results, str) else ""
+            x_text = x_results if isinstance(x_results, str) else ""
+            combined = ""
+            if web_text:
+                combined += f"[Web results:\n{web_text[:2000]}]\n\n"
+            if x_text:
+                combined += f"[X/Twitter posts:\n{x_text[:1500]}]\n\n"
+            if combined:
+                prompt += f"\n\n{combined}Now give a deep analysis using these sources. Include source URLs in your response. Do NOT output SEARCH/SEARCH_X/RESEARCH again.\nRick:"
+                response = await run_claude(prompt, timeout, image_path=image_path)
+        except Exception as e:
+            logger.warning(f"Research failed: {e}")
+    elif search_x_match:
+        query = search_x_match.group(1).strip()
+        logger.info(f"Rick requested X search: {query}")
+        try:
+            results = await web_search_x(query)
+            if results:
+                prompt += f"\n\n[X/Twitter results for \"{query}\":\n{results[:2000]}]\n\nNow answer using these results. Include source URLs. Do NOT output SEARCH_X: again.\nRick:"
+                response = await run_claude(prompt, timeout, image_path=image_path)
+        except Exception as e:
+            logger.warning(f"X search failed: {e}")
+    elif search_match:
         query = search_match.group(1).strip()
         logger.info(f"Rick requested web search: {query}")
         try:
             results = await web_search(query)
             if results:
-                prompt += f"\n\n[Web search results for \"{query}\":\n{results[:2000]}]\n\nNow answer the user's question using these results. Do NOT output SEARCH: again.\nRick:"
+                prompt += f"\n\n[Web search results for \"{query}\":\n{results[:2000]}]\n\nNow answer the user's question using these results. Include source URLs when relevant. Do NOT output SEARCH: again.\nRick:"
                 response = await run_claude(prompt, timeout, image_path=image_path)
         except Exception as e:
             logger.warning(f"Web search failed: {e}")

@@ -49,7 +49,8 @@ def _tavily_search_sync(query: str, max_results: int = 5) -> str:
     data = json.loads(resp.read())
     results = []
     for r in data.get("results", []):
-        results.append(f"[{r['title']}]: {r['content'][:300]}")
+        url = r.get("url", "")
+        results.append(f"[{r['title']}] ({url}): {r['content'][:300]}")
     return "\n\n".join(results)
 
 
@@ -77,6 +78,19 @@ async def web_search(query: str) -> str:
         return await loop.run_in_executor(None, _ddg_search_sync, query)
     except Exception as e:
         logger.warning(f"web_search error: {e}")
+        return ""
+
+
+async def web_search_x(query: str) -> str:
+    """Search X/Twitter via Tavily with site filter."""
+    loop = asyncio.get_running_loop()
+    try:
+        x_query = f"site:x.com OR site:twitter.com {query}"
+        if TAVILY_API_KEY:
+            return await loop.run_in_executor(None, _tavily_search_sync, x_query, 5)
+        return await loop.run_in_executor(None, _ddg_search_sync, x_query)
+    except Exception as e:
+        logger.warning(f"web_search_x error: {e}")
         return ""
 
 
