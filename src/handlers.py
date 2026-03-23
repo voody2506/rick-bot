@@ -73,11 +73,11 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Handle both group and private via send_response (fixes missing voice/sticker/gif)
         if is_group:
-            group_context[chat_id].append(f"{username}: [voice]: {text[:100]}")
+            group_context[chat_id].append(f"{username}: [voice]: {text}")
             response = await maybe_respond_in_group(chat_id, username, f"[voice]: {text}")
             if not response:
                 return
-            group_context[chat_id].append(f"Rick: {response[:300]}")
+            group_context[chat_id].append(f"Rick: {response}")
             await send_response(msg, response, [], context)
         else:
             init_chat(chat_id)
@@ -115,7 +115,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = await maybe_respond_in_group(chat_id, username, user_message)
         if not response:
             return
-        group_context[chat_id].append(f"Rick: {response[:300]}")
+        group_context[chat_id].append(f"Rick: {response}")
         await send_text(msg, response)
     else:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
@@ -203,7 +203,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if is_group:
             context_lines = list(group_context.get(chat_id, []))
-            context_str = "\n".join(context_lines[-8:]) if context_lines else "(no context)"
+            context_str = "\n".join(context_lines) if context_lines else "(no context)"
             vision_prompt = f"Chat context:\n{context_str}\n\n{username} sent a video.\n" + "\n".join(parts)
         else:
             init_chat(chat_id)
@@ -212,7 +212,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = await run_claude(vision_prompt, 120, image_paths=frame_paths)
 
         if is_group:
-            group_context[chat_id].append(f"Rick: {response[:300]}")
+            group_context[chat_id].append(f"Rick: {response}")
 
         typing.cancel()
         await send_response(msg, response, [], context)
@@ -278,10 +278,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         init_chat(chat_id)
         typing = asyncio.create_task(keep_typing())
         context_lines = list(group_context.get(chat_id, []))
-        context_str = "\n".join(context_lines[-8:]) if context_lines else "(start of chat)"
+        context_str = "\n".join(context_lines) if context_lines else "(start of chat)"
         vision_prompt = f"Chat context:\n{context_str}\n\n{username} sent a photo. {user_text}"
         response = await run_claude(vision_prompt, 90, image_path=image_path)
-        group_context[chat_id].append(f"Rick: {response[:300]}")
+        group_context[chat_id].append(f"Rick: {response}")
         typing.cancel()
         await send_response(msg, response, [], context)
         return
@@ -374,7 +374,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "name": user.first_name or user.username or "Morty",
                 "username": user.username
             }
-        group_context[chat_id].append(f"{username}: {user_text[:300]}")
+        group_context[chat_id].append(f"{username}: {user_text}")
 
         bot_username = context.bot.username or ""
         text_lower = user_text.lower()
@@ -419,7 +419,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if reply_photo_path:
         if msg.chat.type in ("group", "supergroup"):
             context_lines = list(group_context.get(chat_id, []))
-            context_str = "\n".join(context_lines[-8:]) if context_lines else "(start of chat)"
+            context_str = "\n".join(context_lines) if context_lines else "(start of chat)"
             vision_prompt = f"Chat context:\n{context_str}\n\n{username} replies to a photo and asks: {user_text}"
         else:
             vision_prompt = user_text
@@ -429,7 +429,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         if msg.chat.type in ("group", "supergroup"):
-            group_context[chat_id].append(f"Rick: {response[:300]}")
+            group_context[chat_id].append(f"Rick: {response}")
         typing.cancel()
         await send_response(msg, response, [], context)
         return
@@ -446,7 +446,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if recent_photo_path:
             context_lines = list(group_context.get(chat_id, []))
-            context_str = "\n".join(context_lines[-8:]) if context_lines else "(no context)"
+            context_str = "\n".join(context_lines) if context_lines else "(no context)"
             vision_prompt = f"Chat context:\n{context_str}\n\n{username} asks about the photo: {user_text}"
             response = await run_claude(vision_prompt, 90, image_path=recent_photo_path)
             try:
@@ -457,18 +457,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not response:
                 response = "burp Can't see the photo, Morty"
             files = []
-            group_context[chat_id].append(f"Rick: {response[:300]}")
+            group_context[chat_id].append(f"Rick: {response}")
         elif directly_addressed:
             # Directly addressed — full prompt with file creation support
-            ctx_lines = list(group_context.get(chat_id, []))[-8:]
+            ctx_lines = list(group_context.get(chat_id, []))
             response, files = await ask_rick(chat_id, user_text, group_context_lines=ctx_lines)
-            group_context[chat_id].append(f"Rick: {response[:300]}")
+            group_context[chat_id].append(f"Rick: {response}")
         else:
             # Random interjection — lightweight prompt
             group_response = await maybe_respond_in_group(chat_id, username, user_text)
             if group_response:
                 response, files = group_response, []
-                group_context[chat_id].append(f"Rick: {group_response[:100]}")
+                group_context[chat_id].append(f"Rick: {group_response}")
             else:
                 typing.cancel()
                 return  # Rick decided to SKIP

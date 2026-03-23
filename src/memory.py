@@ -33,7 +33,7 @@ def save_facts(chat_id, facts):
 
 chat_histories = defaultdict(lambda: deque(maxlen=MAX_HISTORY * 2))
 # Буфер последних сообщений группы для контекста
-group_context = defaultdict(lambda: deque(maxlen=8))
+group_context = defaultdict(lambda: deque(maxlen=20))
 # Участники групповых чатов {chat_id: {user_id: {"name": str, "username": str}}}
 group_members = defaultdict(dict)
 # Последнее фото в группе для follow-up вопросов {chat_id: {"path": str, "ts": float}}
