@@ -17,7 +17,7 @@ from src.memory import (chat_histories, init_chat, save_history,
                         load_facts, save_facts, load_summaries, save_summary,
                         load_profile, save_profile)
 from src.claude import run_claude
-from src.media import find_created_files, find_new_workdir_files, run_generator_scripts
+from src.media import find_created_files, find_new_workdir_files, run_generator_scripts, web_search
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -164,6 +164,19 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
     msg_lower = (user_message or "").lower()
     timeout = 300 if any(kw in msg_lower for kw in FILE_KEYWORDS) else 120
     response = await run_claude(prompt, timeout, image_path=image_path)
+
+    # SEARCH: token — Rick requested web search, fetch results and re-run
+    search_match = re.match(r'^SEARCH:\s*(.+)$', (response or "").strip(), re.IGNORECASE)
+    if search_match:
+        query = search_match.group(1).strip()
+        logger.info(f"Rick requested web search: {query}")
+        try:
+            results = await web_search(query)
+            if results:
+                prompt += f"\n\n[Web search results for \"{query}\":\n{results[:2000]}]\n\nNow answer the user's question using these results. Do NOT output SEARCH: again.\nRick:"
+                response = await run_claude(prompt, timeout, image_path=image_path)
+        except Exception as e:
+            logger.warning(f"Web search failed: {e}")
 
     # Resolve challenge after Claude evaluates
     if answering_challenge:

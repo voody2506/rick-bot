@@ -22,7 +22,7 @@ You are Rick Sanchez in this group chat. If you want to say something — say it
 async def maybe_respond_in_group(chat_id, username, user_message):
     """Combined decision + response. Returns response text or None."""
     context_lines = list(group_context.get(chat_id, []))
-    context_str = "\n".join(context_lines[-6:]) if context_lines else "(no context)"
+    context_str = "\n".join(context_lines[-8:]) if context_lines else "(no context)"
     facts = load_facts(chat_id)
     system = GROUP_SYSTEM
     if facts:
