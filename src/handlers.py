@@ -18,6 +18,7 @@ from src.claude import run_claude
 from src.media import (transcribe_audio, extract_video_frames, extract_video_audio,
                         async_fetch_url, extract_document_text)
 from src.groups import maybe_respond_in_group, pop_pending_image
+from src.prompts import RICK_SYSTEM
 from src.reactions import pick_reaction, set_reaction
 from src.core import ask_rick, send_response, is_rate_limited
 
@@ -239,10 +240,10 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_group:
             context_lines = list(group_context.get(chat_id, []))
             context_str = "\n".join(context_lines) if context_lines else "(no context)"
-            vision_prompt = f"Chat context:\n{context_str}\n\n{username} sent a video.\n" + "\n".join(parts)
+            vision_prompt = RICK_SYSTEM + f"\n\nChat context:\n{context_str}\n\n{username} sent a video.\n" + "\n".join(parts)
         else:
             init_chat(chat_id)
-            vision_prompt = "\n".join(parts)
+            vision_prompt = RICK_SYSTEM + "\n\n" + "\n".join(parts)
 
         response = await run_claude(vision_prompt, 120, image_paths=frame_paths)
 
@@ -314,7 +315,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         typing = asyncio.create_task(keep_typing())
         context_lines = list(group_context.get(chat_id, []))
         context_str = "\n".join(context_lines) if context_lines else "(start of chat)"
-        vision_prompt = f"Chat context:\n{context_str}\n\n{username} sent a photo. {user_text}"
+        vision_prompt = RICK_SYSTEM + f"\n\nChat context:\n{context_str}\n\n{username} sent a photo. {user_text}"
         response = await run_claude(vision_prompt, 90, image_path=image_path)
         group_context[chat_id].append(f"Rick: {response}")
         typing.cancel()
@@ -472,9 +473,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if msg.chat.type in ("group", "supergroup"):
             context_lines = list(group_context.get(chat_id, []))
             context_str = "\n".join(context_lines) if context_lines else "(start of chat)"
-            vision_prompt = f"Chat context:\n{context_str}\n\n{username} replies to a photo and asks: {user_text}"
+            vision_prompt = RICK_SYSTEM + f"\n\nChat context:\n{context_str}\n\n{username} replies to a photo and asks: {user_text}"
         else:
-            vision_prompt = user_text
+            vision_prompt = RICK_SYSTEM + f"\n\n{user_text}"
         response = await run_claude(vision_prompt, 90, image_path=reply_photo_path)
         try:
             os.unlink(reply_photo_path)
@@ -524,9 +525,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if msg.chat.type in ("group", "supergroup"):
                 context_lines = list(group_context.get(chat_id, []))
                 context_str = "\n".join(context_lines) if context_lines else "(no context)"
-                vision_prompt = f"Chat context:\n{context_str}\n\n" + "\n".join(parts)
+                vision_prompt = RICK_SYSTEM + f"\n\nChat context:\n{context_str}\n\n" + "\n".join(parts)
             else:
-                vision_prompt = "\n".join(parts)
+                vision_prompt = RICK_SYSTEM + "\n\n" + "\n".join(parts)
 
             response = await run_claude(vision_prompt, 120, image_paths=frame_paths)
             if msg.chat.type in ("group", "supergroup"):
@@ -552,7 +553,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if recent_photo_path:
             context_lines = list(group_context.get(chat_id, []))
             context_str = "\n".join(context_lines) if context_lines else "(no context)"
-            vision_prompt = f"Chat context:\n{context_str}\n\n{username} asks about the photo: {user_text}"
+            vision_prompt = RICK_SYSTEM + f"\n\nChat context:\n{context_str}\n\n{username} asks about the photo: {user_text}"
             response = await run_claude(vision_prompt, 90, image_path=recent_photo_path)
             try:
                 os.unlink(recent_photo_path)
