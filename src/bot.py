@@ -48,11 +48,12 @@ async def post_init(application):
             h, m = map(int, cfg["time"].split(":"))
             scheduler.add_job(
                 send_daily_news, CronTrigger(hour=h, minute=m),
-                args=[application.bot, int(cid), cfg.get("topic", "science technology AI")],
+                args=[int(cid), cfg.get("topic", "science technology AI")],
                 id=f"news_{cid}", replace_existing=True
             )
-        except Exception:
-            pass
+            logger.info(f"News job registered: chat {cid} at {h:02d}:{m:02d}")
+        except Exception as e:
+            logger.error(f"Failed to register news job for chat {cid}: {e}")
 
     me = await application.bot.get_me()
     logger.info(f"@{me.username} — Rick v11 online (scheduler started, daily scenario)")

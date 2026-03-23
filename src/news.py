@@ -23,14 +23,19 @@ def save_news_config(config: dict):
     NEWS_CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False, indent=2))
 
 
-async def send_daily_news(bot, chat_id: int, topic: str = "science technology AI"):
+async def send_daily_news(chat_id: int, topic: str = "science technology AI"):
     """Search for news and send Rick's commentary."""
+    import src.scheduler
     try:
         if not TAVILY_API_KEY:
+            logger.warning(f"News skipped for {chat_id}: no TAVILY_API_KEY")
             return
+
+        bot = src.scheduler._app.bot
 
         results = _tavily_search_sync(f"latest {topic} news today", max_results=3)
         if not results:
+            logger.warning(f"News skipped for {chat_id}: no search results")
             return
 
         prompt = (

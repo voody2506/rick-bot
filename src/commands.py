@@ -41,7 +41,7 @@ async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not topic:
             await send_text(update.message, "Specify topic: `/news now AI startups`")
             return
-        await send_daily_news(context.bot, int(chat_id), topic)
+        await send_daily_news(int(chat_id), topic)
         return
 
     time_str = args[0]
@@ -62,7 +62,7 @@ async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from apscheduler.triggers.cron import CronTrigger
     scheduler.add_job(
         send_daily_news, CronTrigger(hour=hour, minute=minute),
-        args=[context.bot, int(chat_id), topic],
+        args=[int(chat_id), topic],
         id=f"news_{chat_id}", replace_existing=True
     )
     await send_text(update.message, f"Daily news at {time_str}, topic: {topic}")
