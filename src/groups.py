@@ -1,9 +1,14 @@
 """Group chat logic — combined decision + response in one Claude call."""
+import re
+import logging
 from src.memory import group_context, group_members, load_facts
 from src.prompts import GROUP_SYSTEM
 from src.claude import run_claude
+from src.media import web_search, web_search_x
 from src.scenario import get_scenario_for_prompt
 from src.mood import get_mood_modifier, update_mood
+
+logger = logging.getLogger(__name__)
 
 SKIP_TOKEN = "SKIP"
 
@@ -16,7 +21,8 @@ Chat context:
 
 {username} wrote: "{message}"
 
-You are Rick Sanchez in this group chat. If you want to say something — say it (short, 1-3 sentences max). If this message doesn't need a response from Rick — reply with exactly: SKIP"""
+You are Rick Sanchez in this group chat. If you want to say something — say it (short, 1-3 sentences max). If this message doesn't need a response from Rick — reply with exactly: SKIP
+If you see someone struggling with a problem, sharing dubious facts, or discussing something you can add real value to — proactively help. You can use SEARCH:/SEARCH_X:/RESEARCH: tokens (respond with ONLY the token, results come automatically)."""
 
 
 async def maybe_respond_in_group(chat_id, username, user_message):
@@ -34,15 +40,71 @@ async def maybe_respond_in_group(chat_id, username, user_message):
     mood_mod = get_mood_modifier(chat_id)
     if mood_mod:
         scenario += f"\nCURRENT MOOD SHIFT: {mood_mod}\n"
-    response = await run_claude(
-        GROUP_COMBINED_PROMPT.format(
-            system=system, scenario=scenario, context=context_str,
-            members_list=members_list, username=username, message=user_message
-        ), 60
+
+    prompt = GROUP_COMBINED_PROMPT.format(
+        system=system, scenario=scenario, context=context_str,
+        members_list=members_list, username=username, message=user_message
     )
+    response = await run_claude(prompt, 60)
 
     if not response or SKIP_TOKEN in response.strip().upper():
         return None
+
+    # Handle search tokens — same logic as core.py ask_rick
+    response = await _handle_search_tokens(response, prompt)
+
+    return response
+
+
+async def _handle_search_tokens(response, prompt):
+    """Intercept SEARCH/SEARCH_X/RESEARCH tokens, fetch results, re-run Claude."""
+    import asyncio
+    stripped = response.strip()
+
+    research_match = re.match(r'^RESEARCH:\s*(.+)$', stripped, re.IGNORECASE)
+    search_x_match = re.match(r'^SEARCH_X:\s*(.+)$', stripped, re.IGNORECASE)
+    search_match = re.match(r'^SEARCH:\s*(.+)$', stripped, re.IGNORECASE)
+
+    if research_match:
+        query = research_match.group(1).strip()
+        logger.info(f"Group: Rick requested RESEARCH: {query}")
+        try:
+            web_results, x_results = await asyncio.gather(
+                web_search(query), web_search_x(query), return_exceptions=True
+            )
+            web_text = web_results if isinstance(web_results, str) else ""
+            x_text = x_results if isinstance(x_results, str) else ""
+            combined = ""
+            if web_text:
+                combined += f"[Web results:\n{web_text[:2000]}]\n\n"
+            if x_text:
+                combined += f"[X/Twitter posts:\n{x_text[:1500]}]\n\n"
+            if combined:
+                prompt += f"\n\n{combined}Now give a brief analysis with source URLs. Do NOT output SEARCH/RESEARCH again.\nRick:"
+                response = await run_claude(prompt, 60)
+        except Exception as e:
+            logger.warning(f"Group research failed: {e}")
+    elif search_x_match:
+        query = search_x_match.group(1).strip()
+        logger.info(f"Group: Rick requested SEARCH_X: {query}")
+        try:
+            results = await web_search_x(query)
+            if results:
+                prompt += f"\n\n[X/Twitter results:\n{results[:2000]}]\n\nAnswer briefly with source URLs. Do NOT output SEARCH_X: again.\nRick:"
+                response = await run_claude(prompt, 60)
+        except Exception as e:
+            logger.warning(f"Group X search failed: {e}")
+    elif search_match:
+        query = search_match.group(1).strip()
+        logger.info(f"Group: Rick requested SEARCH: {query}")
+        try:
+            results = await web_search(query)
+            if results:
+                prompt += f"\n\n[Web results:\n{results[:2000]}]\n\nAnswer briefly with source URLs. Do NOT output SEARCH: again.\nRick:"
+                response = await run_claude(prompt, 60)
+        except Exception as e:
+            logger.warning(f"Group search failed: {e}")
+
     return response
 
 
