@@ -464,10 +464,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     typing = asyncio.create_task(keep_typing())
 
-    # Check: user replying to a video message?
+    # Check: user replying to a video message? (video, video_note, animation, or document with video mime)
     reply_video = None
-    if msg.reply_to_message and (msg.reply_to_message.video or msg.reply_to_message.video_note):
-        reply_video = msg.reply_to_message.video or msg.reply_to_message.video_note
+    if msg.reply_to_message:
+        rm = msg.reply_to_message
+        if rm.video:
+            reply_video = rm.video
+        elif rm.video_note:
+            reply_video = rm.video_note
+        elif rm.animation:
+            reply_video = rm.animation
+        elif rm.document and rm.document.mime_type and rm.document.mime_type.startswith("video/"):
+            reply_video = rm.document
 
     if reply_photo_path:
         if msg.chat.type in ("group", "supergroup"):
@@ -489,6 +497,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if reply_video:
         # Download video from replied message
+        logger.info(f"Reply video detected: file_id={reply_video.file_id[:16]}, chat={chat_id}")
         video_path = str(WORK_DIR / f"reply_video_{chat_id}_{reply_video.file_id[:8]}.mp4")
         try:
             file = await context.bot.get_file(reply_video.file_id)
@@ -505,10 +514,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 loop.run_in_executor(None, extract_video_frames, video_path, 4),
                 loop.run_in_executor(None, extract_video_audio, video_path)
             )
+            logger.info(f"Video extracted: {len(frame_paths)} frames, audio={'yes' if audio_path else 'no'}")
             transcript = ""
             if audio_path:
                 try:
                     transcript = await transcribe_audio(audio_path)
+                    logger.info(f"Video transcript: {transcript[:100]}")
                 except Exception as e:
                     logger.warning(f"Reply video transcription failed: {e}")
 
