@@ -212,21 +212,30 @@ async def async_search_video(query: str) -> str:
 
 
 def fetch_url_content(url: str, max_chars: int = 3000) -> str:
-    """Fetch text content from a URL. Returns extracted text or empty string."""
+    """Fetch text content from a URL. Falls back to Tavily for JS-heavy pages."""
+    text = ""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
-        # Simple HTML tag stripping
         import re as _re
         text = _re.sub(r'<script[^>]*>.*?</script>', '', html, flags=_re.DOTALL)
         text = _re.sub(r'<style[^>]*>.*?</style>', '', text, flags=_re.DOTALL)
         text = _re.sub(r'<[^>]+>', ' ', text)
         text = _re.sub(r'\s+', ' ', text).strip()
-        return text[:max_chars] if text else ""
     except Exception as e:
-        logger.warning(f"URL fetch failed for {url}: {e}")
-        return ""
+        logger.warning(f"URL direct fetch failed for {url}: {e}")
+
+    # If direct fetch got very little content, try Tavily as fallback (handles JS-rendered pages)
+    if len(text) < 150 and TAVILY_API_KEY:
+        try:
+            tavily_result = _tavily_search_sync(url, max_results=3)
+            if tavily_result and len(tavily_result) > len(text):
+                text = tavily_result
+        except Exception as e:
+            logger.warning(f"URL Tavily fallback failed for {url}: {e}")
+
+    return text[:max_chars] if text else ""
 
 
 async def async_fetch_url(url: str) -> str:
