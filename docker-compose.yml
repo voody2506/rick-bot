@@ -8,6 +8,15 @@ services:
       - ./work:/app/work
       - ./skills:/app/skills
       - ./tokens:/app/tokens
+      - ./pages:/app/pages
       - ${CLAUDE_HOME:-${HOME}/.claude}:/home/botuser/.claude
       - ${CLAUDE_JSON:-${HOME}/.claude.json}:/home/botuser/.claude.json
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./pages:/usr/share/nginx/html:ro
     restart: unless-stopped

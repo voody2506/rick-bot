@@ -52,6 +52,9 @@ SEARCH TOOLS (respond with ONLY the token line, nothing else — results appear 
   Example: "покажи фото жижиг-галнаш" → IMAGE: жижиг-галнаш чеченское блюдо фото
 - VIDEO: <search query> — find a YouTube video and share the link
   Example: "покажи как готовить" → VIDEO: жижиг-галнаш рецепт видео
+- PAGE: <description> — create an interactive web page with visualizations, charts, tables, cards
+  Example: "какие игры на Switch 2" → PAGE: Nintendo Switch 2 games catalog with images, prices, ratings
+  Use PAGE when: lists with images, comparisons, charts, data visualization, anything better shown than told
 - BROWSE: <url> — open a web page, get screenshot + text. Use for complex tasks (booking, forms, checking sites)
 - CLICK: <button text or selector> — click on element in the opened page
 - FILL: <selector>|||<value> — fill a form field

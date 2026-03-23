@@ -21,6 +21,7 @@ from src.claude import run_claude
 from src.media import (find_created_files, find_new_workdir_files, run_generator_scripts,
                         web_search, web_search_x, async_search_image, async_search_video)
 from src.browser import navigate, click, scroll, fill_form, close_session
+from src.pages import save_page
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -172,7 +173,7 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
 
     # Token processing loop — Rick can chain multiple actions (max 5 iterations)
     TOKEN_PATTERN = re.compile(
-        r'^(BROWSE|CLICK|FILL|SCROLL|CLOSE_BROWSER|SEARCH|SEARCH_X|RESEARCH|CODE|IMAGE|VIDEO):\s*(.+)$',
+        r'^(BROWSE|CLICK|FILL|SCROLL|CLOSE_BROWSER|SEARCH|SEARCH_X|RESEARCH|CODE|IMAGE|VIDEO|PAGE):\s*(.+)$',
         re.IGNORECASE | re.MULTILINE
     )
     CLOSE_PATTERN = re.compile(r'^CLOSE_BROWSER$', re.IGNORECASE | re.MULTILINE)
@@ -280,6 +281,32 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             elif token == "VIDEO":
                 results = await async_search_video(arg)
                 prompt += f"\n\n[Video results:\n{(results or 'nothing found')[:1500]}]\nRick:"
+
+            elif token == "PAGE":
+                # Rick wants to create an interactive HTML page
+                # Ask Claude to generate the HTML
+                page_prompt = f"""Generate a complete, beautiful HTML page for: {arg}
+
+Requirements:
+- Single self-contained HTML file with inline CSS and JS
+- Modern dark theme design, mobile-friendly
+- Use Chart.js from CDN for charts/graphs if needed
+- Use clean typography, cards layout, gradients
+- Russian language for content
+- Include interactive elements where appropriate (tabs, filters, hover effects)
+- Title at the top, content organized in cards/sections
+- NO external dependencies except CDN libraries (Chart.js, etc)
+- Return ONLY the HTML code, nothing else"""
+                html = await run_claude(page_prompt, 120)
+                # Extract HTML if wrapped in code block
+                html_match = re.search(r'```(?:html)?\s*\n(.+?)```', html, re.DOTALL)
+                if html_match:
+                    html = html_match.group(1)
+                if html.strip().startswith("<!") or html.strip().startswith("<html"):
+                    url = save_page(html)
+                    prompt += f"\n\n[Page created: {url}]\nShare this link with the user and briefly describe what's on the page.\nRick:"
+                else:
+                    prompt += "\n\n[Page generation failed — invalid HTML.]\nRick:"
 
         except Exception as e:
             logger.warning(f"Token {token} failed: {e}")

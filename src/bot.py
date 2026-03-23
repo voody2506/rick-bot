@@ -37,9 +37,15 @@ async def post_init(application):
         asyncio.create_task(generate_daily_scenario())
 
     from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
+    from src.pages import cleanup_old_pages
     scheduler.add_job(
         generate_daily_scenario, CronTrigger(hour=8, minute=0),
         id="daily_scenario", replace_existing=True
+    )
+    scheduler.add_job(
+        cleanup_old_pages, IntervalTrigger(hours=6),
+        id="cleanup_pages", replace_existing=True
     )
 
     news_config = load_news_config()
