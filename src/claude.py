@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 def run_claude_sync(prompt: str, timeout: int = CLAUDE_TIMEOUT, image_path: str = None, image_paths: list = None) -> str:
     if ANTHROPIC_API_KEY:
         return _run_sdk_sync(prompt, timeout, image_path, image_paths)
+    # CLI mode: stitch multiple images into one collage
+    if image_paths and not image_path:
+        from src.media import stitch_images_to_collage
+        image_path = stitch_images_to_collage(image_paths)
     return _run_cli_sync(prompt, timeout, image_path)
 
 

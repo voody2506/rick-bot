@@ -33,6 +33,35 @@ async def transcribe_audio(ogg_path: str, language: str = "ru") -> str:
     return result["text"].strip()
 
 
+def stitch_images_to_collage(image_paths: list[str], output_path: str = None) -> str | None:
+    """Combine multiple images into a single collage for CLI mode."""
+    from PIL import Image
+    if not image_paths:
+        return None
+    try:
+        images = [Image.open(p) for p in image_paths]
+        # Resize all to same height
+        target_h = 360
+        resized = []
+        for img in images:
+            ratio = target_h / img.height
+            resized.append(img.resize((int(img.width * ratio), target_h)))
+        total_w = sum(im.width for im in resized)
+        collage = Image.new("RGB", (total_w, target_h))
+        x = 0
+        for im in resized:
+            collage.paste(im, (x, 0))
+            x += im.width
+        if not output_path:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            output_path = str(WORK_DIR / f"collage_{os.getpid()}.jpg")
+        collage.save(output_path, "JPEG", quality=80)
+        return output_path
+    except Exception as e:
+        logger.warning(f"Collage creation failed: {e}")
+        return None
+
+
 def extract_video_frames(video_path: str, max_frames: int = 4) -> list[str]:
     """Extract key frames from video using ffmpeg. Returns list of image paths."""
     WORK_DIR.mkdir(parents=True, exist_ok=True)
