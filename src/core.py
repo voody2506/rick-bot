@@ -172,11 +172,11 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
 
     # Browser tokens — Rick can browse the web
     response_stripped = (response or "").strip()
-    browse_match = re.match(r'^BROWSE:\s*(.+)$', response_stripped, re.IGNORECASE)
-    click_match = re.match(r'^CLICK:\s*(.+)$', response_stripped, re.IGNORECASE)
-    fill_match = re.match(r'^FILL:\s*(.+)$', response_stripped, re.IGNORECASE)
-    scroll_match = re.match(r'^SCROLL:\s*(.+)$', response_stripped, re.IGNORECASE)
-    close_match = re.match(r'^CLOSE_BROWSER$', response_stripped, re.IGNORECASE)
+    browse_match = re.search(r'^BROWSE:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    click_match = re.search(r'^CLICK:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    fill_match = re.search(r'^FILL:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    scroll_match = re.search(r'^SCROLL:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    close_match = re.search(r'^CLOSE_BROWSER$', response_stripped, re.IGNORECASE | re.MULTILINE)
 
     browser_screenshot = None  # will be sent as photo
 
@@ -242,9 +242,10 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
         files = [browser_screenshot]
 
     # Search tokens — Rick can request web/X/deep search
-    search_match = re.match(r'^SEARCH:\s*(.+)$', response_stripped, re.IGNORECASE)
-    search_x_match = re.match(r'^SEARCH_X:\s*(.+)$', response_stripped, re.IGNORECASE)
-    research_match = re.match(r'^RESEARCH:\s*(.+)$', response_stripped, re.IGNORECASE)
+    # Use re.search with MULTILINE — Rick sometimes writes text before the token
+    search_match = re.search(r'^SEARCH:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    search_x_match = re.search(r'^SEARCH_X:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    research_match = re.search(r'^RESEARCH:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
 
     if research_match:
         query = research_match.group(1).strip()
@@ -289,9 +290,9 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             logger.warning(f"Web search failed: {e}")
 
     # CODE: token — Rick wants to execute Python
-    code_match = re.match(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', (response or "").strip(), re.DOTALL | re.IGNORECASE)
+    code_match = re.search(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', (response or "").strip(), re.DOTALL | re.IGNORECASE | re.MULTILINE)
     if not code_match:
-        code_match = re.match(r'^CODE:\s*(.+)$', (response or "").strip(), re.DOTALL | re.IGNORECASE)
+        code_match = re.search(r'^CODE:\s*(.+)$', (response or "").strip(), re.IGNORECASE | re.MULTILINE)
     if code_match:
         code = code_match.group(1).strip()
         logger.info(f"Rick requested code execution: {code[:100]}")
@@ -311,7 +312,7 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             logger.warning(f"Code execution failed: {e}")
 
     # IMAGE: token — Rick wants to find and send an image
-    image_match = re.match(r'^IMAGE:\s*(.+)$', (response or "").strip(), re.IGNORECASE)
+    image_match = re.search(r'^IMAGE:\s*(.+)$', (response or "").strip(), re.IGNORECASE | re.MULTILINE)
     if image_match:
         query = image_match.group(1).strip()
         logger.info(f"Rick requested image search: {query}")
@@ -326,7 +327,7 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             response = await run_claude(prompt, timeout)
 
     # VIDEO: token — Rick wants to find and share a video
-    video_match = re.match(r'^VIDEO:\s*(.+)$', (response or "").strip(), re.IGNORECASE)
+    video_match = re.search(r'^VIDEO:\s*(.+)$', (response or "").strip(), re.IGNORECASE | re.MULTILINE)
     if video_match:
         query = video_match.group(1).strip()
         logger.info(f"Rick requested video search: {query}")

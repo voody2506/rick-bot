@@ -70,9 +70,9 @@ async def _handle_search_tokens(response, prompt):
     import asyncio
     stripped = response.strip()
 
-    research_match = re.match(r'^RESEARCH:\s*(.+)$', stripped, re.IGNORECASE)
-    search_x_match = re.match(r'^SEARCH_X:\s*(.+)$', stripped, re.IGNORECASE)
-    search_match = re.match(r'^SEARCH:\s*(.+)$', stripped, re.IGNORECASE)
+    research_match = re.search(r'^RESEARCH:\s*(.+)$', stripped, re.IGNORECASE | re.MULTILINE)
+    search_x_match = re.search(r'^SEARCH_X:\s*(.+)$', stripped, re.IGNORECASE | re.MULTILINE)
+    search_match = re.search(r'^SEARCH:\s*(.+)$', stripped, re.IGNORECASE | re.MULTILINE)
 
     if research_match:
         query = research_match.group(1).strip()
@@ -115,9 +115,9 @@ async def _handle_search_tokens(response, prompt):
             logger.warning(f"Group search failed: {e}")
 
     # CODE: token
-    code_match = re.match(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', response.strip(), re.DOTALL | re.IGNORECASE)
+    code_match = re.search(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', response.strip(), re.DOTALL | re.IGNORECASE | re.MULTILINE)
     if not code_match:
-        code_match = re.match(r'^CODE:\s*(.+)$', response.strip(), re.DOTALL | re.IGNORECASE)
+        code_match = re.search(r'^CODE:\s*(.+)$', response.strip(), re.IGNORECASE | re.MULTILINE)
     if code_match:
         code = code_match.group(1).strip()
         logger.info(f"Group: Rick requested code execution: {code[:100]}")
@@ -134,7 +134,7 @@ async def _handle_search_tokens(response, prompt):
             logger.warning(f"Group code execution failed: {e}")
 
     # VIDEO: token
-    video_match = re.match(r'^VIDEO:\s*(.+)$', response.strip(), re.IGNORECASE)
+    video_match = re.search(r'^VIDEO:\s*(.+)$', response.strip(), re.IGNORECASE | re.MULTILINE)
     if video_match:
         query = video_match.group(1).strip()
         logger.info(f"Group: Rick requested video search: {query}")
@@ -147,7 +147,7 @@ async def _handle_search_tokens(response, prompt):
             response = await run_claude(prompt, 60)
 
     # IMAGE: token — store found image for caller to send
-    image_match = re.match(r'^IMAGE:\s*(.+)$', response.strip(), re.IGNORECASE)
+    image_match = re.search(r'^IMAGE:\s*(.+)$', response.strip(), re.IGNORECASE | re.MULTILINE)
     if image_match:
         query = image_match.group(1).strip()
         logger.info(f"Group: Rick requested image search: {query}")
