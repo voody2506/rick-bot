@@ -76,6 +76,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Handle both group and private via send_response (fixes missing voice/sticker/gif)
         if is_group:
             group_context[chat_id].append(f"{username}: [voice]: {text}")
+            # Always transcribe into context, but only respond via random chance
+            if random.random() > GROUP_RANDOM_CHANCE:
+                return  # Rick heard it, saved to context, but stays silent
             response = await maybe_respond_in_group(chat_id, username, f"[voice]: {text}")
             if not response:
                 return
@@ -112,6 +115,38 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     filename = msg.document.file_name or "unknown file"
     caption = msg.caption or ""
+
+    # Audio documents — transcribe like voice messages
+    AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac", ".wma")
+    if any(filename.lower().endswith(ext) for ext in AUDIO_EXTS):
+        try:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            audio_path = str(WORK_DIR / f"audio_{chat_id}_{filename}")
+            file = await context.bot.get_file(msg.document.file_id)
+            await file.download_to_drive(audio_path)
+            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+            text = await transcribe_audio(audio_path)
+            try: os.unlink(audio_path)
+            except Exception: pass
+            if text:
+                logger.info(f"Audio doc transcribed: {text[:100]}")
+                if is_group:
+                    group_context[chat_id].append(f"{username}: [audio file]: {text}")
+                    if random.random() > GROUP_RANDOM_CHANCE:
+                        return
+                    response = await maybe_respond_in_group(chat_id, username, f"[audio file]: {text}")
+                    if not response:
+                        return
+                    group_context[chat_id].append(f"Rick: {response}")
+                    img = pop_pending_image(response)
+                    await send_response(msg, response, [img] if img else [], context)
+                else:
+                    init_chat(chat_id)
+                    response, files = await ask_rick(chat_id, f"[audio file]: {text}", user_id=user.id if user else None)
+                    await send_response(msg, response, files, context)
+                return
+        except Exception as e:
+            logger.warning(f"Audio document processing failed: {e}")
 
     # Try to download and extract text
     doc_text = ""
