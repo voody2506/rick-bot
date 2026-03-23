@@ -15,7 +15,8 @@ from src.config import MAX_HISTORY, MAX_FACTS, WORK_DIR, TIMEZONE
 from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT, SUMMARIZE_PROMPT, PROFILE_PROMPT
 from src.memory import (chat_histories, init_chat, save_history,
                         load_facts, save_facts, load_summaries, save_summary,
-                        load_profile, save_profile)
+                        load_profile, save_profile,
+                        save_user_profile, save_user_facts, load_user_facts)
 from src.claude import run_claude
 from src.media import find_created_files, find_new_workdir_files, run_generator_scripts, web_search, web_search_x
 from src.skills import load_skills_for_chat
@@ -147,7 +148,7 @@ def build_prompt(chat_id, user_message, group_context_lines=None):
     return prompt
 
 
-async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=None):
+async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=None, user_id=None):
     init_chat(chat_id)
     start_time = time.time()
     update_mood(chat_id, user_message or "")
@@ -213,6 +214,28 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
         except Exception as e:
             logger.warning(f"Web search failed: {e}")
 
+    # CODE: token — Rick wants to execute Python
+    code_match = re.match(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', (response or "").strip(), re.DOTALL | re.IGNORECASE)
+    if not code_match:
+        code_match = re.match(r'^CODE:\s*(.+)$', (response or "").strip(), re.DOTALL | re.IGNORECASE)
+    if code_match:
+        code = code_match.group(1).strip()
+        logger.info(f"Rick requested code execution: {code[:100]}")
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", "-c", code],
+                capture_output=True, text=True, timeout=10
+            )
+            output = (result.stdout or result.stderr or "no output").strip()[:1000]
+            prompt += f"\n\n[Code executed. Output:\n{output}]\n\nNow share the result with the user in Rick's style. Do NOT output CODE: again.\nRick:"
+            response = await run_claude(prompt, timeout, image_path=image_path)
+        except subprocess.TimeoutExpired:
+            prompt += "\n\n[Code execution timed out after 10s]\n\nTell the user Rick-style.\nRick:"
+            response = await run_claude(prompt, timeout, image_path=image_path)
+        except Exception as e:
+            logger.warning(f"Code execution failed: {e}")
+
     # Resolve challenge after Claude evaluates
     if answering_challenge:
         resolve_challenge(chat_id)
@@ -246,12 +269,12 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
 
     # Summarize when history is full
     if len(chat_histories[chat_id]) >= MAX_HISTORY * 2:
-        asyncio.create_task(summarize_and_update_profile(chat_id))
+        asyncio.create_task(summarize_and_update_profile(chat_id, user_id=user_id))
 
     return response, files
 
 
-async def summarize_and_update_profile(chat_id):
+async def summarize_and_update_profile(chat_id, user_id=None):
     """Summarize current conversation and update user profile. Runs in background."""
     try:
         history = list(chat_histories[chat_id])
@@ -288,6 +311,8 @@ async def summarize_and_update_profile(chat_id):
             try:
                 new_profile = json.loads(profile_raw.strip())
                 save_profile(chat_id, new_profile)
+                if user_id:
+                    save_user_profile(user_id, new_profile)
                 logger.info(f"Updated profile for chat {chat_id}")
             except json.JSONDecodeError:
                 logger.warning(f"Failed to parse profile JSON for chat {chat_id}")

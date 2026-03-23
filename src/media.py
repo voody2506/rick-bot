@@ -96,6 +96,53 @@ def extract_video_audio(video_path: str) -> str | None:
     return None
 
 
+def extract_document_text(file_path: str, max_chars: int = 4000) -> str:
+    """Extract text from PDF, DOCX, or plain text files."""
+    ext = os.path.splitext(file_path)[1].lower()
+    try:
+        if ext == ".pdf":
+            from PyPDF2 import PdfReader
+            reader = PdfReader(file_path)
+            text = "\n".join(page.extract_text() or "" for page in reader.pages[:20])
+        elif ext in (".docx", ".doc"):
+            from docx import Document
+            doc = Document(file_path)
+            text = "\n".join(p.text for p in doc.paragraphs)
+        elif ext in (".txt", ".md", ".csv", ".json", ".py", ".js", ".html", ".css", ".log"):
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+        else:
+            return ""
+        return text[:max_chars].strip() if text else ""
+    except Exception as e:
+        logger.warning(f"Document extract failed for {file_path}: {e}")
+        return ""
+
+
+def fetch_url_content(url: str, max_chars: int = 3000) -> str:
+    """Fetch text content from a URL. Returns extracted text or empty string."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+        # Simple HTML tag stripping
+        import re as _re
+        text = _re.sub(r'<script[^>]*>.*?</script>', '', html, flags=_re.DOTALL)
+        text = _re.sub(r'<style[^>]*>.*?</style>', '', text, flags=_re.DOTALL)
+        text = _re.sub(r'<[^>]+>', ' ', text)
+        text = _re.sub(r'\s+', ' ', text).strip()
+        return text[:max_chars] if text else ""
+    except Exception as e:
+        logger.warning(f"URL fetch failed for {url}: {e}")
+        return ""
+
+
+async def async_fetch_url(url: str) -> str:
+    """Async wrapper for fetch_url_content."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, fetch_url_content, url)
+
+
 def _tavily_search_sync(query: str, max_results: int = 5) -> str:
     """Search via Tavily API — returns summarized context for AI."""
     payload = json.dumps({

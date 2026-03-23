@@ -77,6 +77,59 @@ def save_profile(chat_id, profile: dict):
         json.dumps(profile, ensure_ascii=False, indent=2))
 
 
+def get_user_dir(user_id):
+    d = MEMORY_DIR / "users" / str(user_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def load_user_profile(user_id) -> dict:
+    path = get_user_dir(user_id) / "profile.json"
+    if path.exists():
+        try: return json.loads(path.read_text())
+        except: pass
+    return {}
+
+
+def save_user_profile(user_id, profile: dict):
+    (get_user_dir(user_id) / "profile.json").write_text(
+        json.dumps(profile, ensure_ascii=False, indent=2))
+
+
+def load_user_facts(user_id) -> list:
+    path = get_user_dir(user_id) / "facts.json"
+    if path.exists():
+        try: return json.loads(path.read_text())
+        except: pass
+    return []
+
+
+def save_user_facts(user_id, facts: list):
+    (get_user_dir(user_id) / "facts.json").write_text(
+        json.dumps(facts, ensure_ascii=False, indent=2))
+
+
+def load_group_user_profiles(chat_id) -> str:
+    """Load profiles of all known group members. Returns formatted string."""
+    members = group_members.get(chat_id, {})
+    if not members:
+        return ""
+    lines = []
+    for uid, info in members.items():
+        profile = load_user_profile(uid)
+        if profile:
+            name = info.get("name", "?")
+            parts = [f"{name}:"]
+            for k, v in profile.items():
+                if v and v != "null" and k != "name":
+                    parts.append(f"{k}={v}")
+            if len(parts) > 1:
+                lines.append(" ".join(parts))
+    if not lines:
+        return ""
+    return "Known participants:\n" + "\n".join(f"- {l}" for l in lines)
+
+
 def init_chat(chat_id):
     if chat_id not in chat_histories or len(chat_histories[chat_id]) == 0:
         chat_histories[chat_id] = load_history(chat_id)

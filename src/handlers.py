@@ -15,7 +15,8 @@ from src.config import WORK_DIR, RICK_NAMES, GROUP_RANDOM_CHANCE
 from src.memory import (group_context, group_members,
                         group_recent_photos, init_chat)
 from src.claude import run_claude
-from src.media import transcribe_audio, extract_video_frames, extract_video_audio
+from src.media import (transcribe_audio, extract_video_frames, extract_video_audio,
+                        async_fetch_url, extract_document_text)
 from src.groups import maybe_respond_in_group
 from src.reactions import pick_reaction, set_reaction
 from src.core import ask_rick, send_response, send_text, is_rate_limited
@@ -81,7 +82,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_response(msg, response, [], context)
         else:
             init_chat(chat_id)
-            response, files = await ask_rick(chat_id, f"[voice message]: {text}")
+            response, files = await ask_rick(chat_id, f"[voice message]: {text}", user_id=user.id if user else None)
             await send_response(msg, response, files, context)
 
     finally:
@@ -92,7 +93,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle incoming documents."""
+    """Handle incoming documents — extract text and analyze."""
     msg = update.message
     if not msg:
         return
@@ -108,20 +109,52 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     filename = msg.document.file_name or "unknown file"
-    user_message = f"User sent a file: {filename}. What do you think?"
+    caption = msg.caption or ""
+
+    # Try to download and extract text
+    doc_text = ""
+    doc_path = None
+    READABLE_EXTS = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
+                     ".py", ".js", ".html", ".css", ".log")
+    if any(filename.lower().endswith(ext) for ext in READABLE_EXTS):
+        try:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            doc_path = str(WORK_DIR / f"doc_{chat_id}_{msg.document.file_id[:8]}_{filename}")
+            file = await context.bot.get_file(msg.document.file_id)
+            await file.download_to_drive(doc_path)
+            doc_text = extract_document_text(doc_path)
+        except Exception as e:
+            logger.warning(f"Document download/extract failed: {e}")
+
+    if doc_text:
+        user_message = f"User sent file \"{filename}\""
+        if caption:
+            user_message += f" with caption: \"{caption}\""
+        user_message += f"\n\n[File content:\n{doc_text}]"
+    else:
+        user_message = f"User sent a file: {filename}."
+        if caption:
+            user_message += f" Caption: \"{caption}\""
 
     if is_group:
         group_context[chat_id].append(f"{username}: [sent file: {filename}]")
         response = await maybe_respond_in_group(chat_id, username, user_message)
         if not response:
+            if doc_path:
+                try: os.unlink(doc_path)
+                except Exception: pass
             return
         group_context[chat_id].append(f"Rick: {response}")
         await send_text(msg, response)
     else:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         init_chat(chat_id)
-        response, files = await ask_rick(chat_id, user_message)
+        response, files = await ask_rick(chat_id, user_message, user_id=user.id if user else None)
         await send_response(msg, response, files, context)
+
+    if doc_path:
+        try: os.unlink(doc_path)
+        except Exception: pass
 
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -317,7 +350,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     typing = asyncio.create_task(keep_typing())
     try:
         # ask_rick now includes full context even with image_path
-        response, files = await ask_rick(chat_id, user_text, image_path=image_path)
+        response, files = await ask_rick(chat_id, user_text, image_path=image_path, user_id=user.id if user else None)
     finally:
         typing.cancel()
         try: os.unlink(image_path)
@@ -367,6 +400,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_user = reply_msg.from_user
             reply_name = reply_user.first_name if reply_user else "Someone"
             user_text = f"[Replying to {reply_name}: \"{quoted}\"]\n\n{user_text}"
+
+    # Detect and fetch URL content
+    import re as _re
+    urls = _re.findall(r'https?://[^\s<>"]+', user_text)
+    if urls and len(urls) <= 2:
+        url_contents = []
+        for url in urls[:2]:
+            content = await async_fetch_url(url)
+            if content:
+                url_contents.append(f"[Content from {url}:\n{content[:2000]}]")
+        if url_contents:
+            user_text += "\n\n" + "\n\n".join(url_contents)
 
     if msg.chat.type in ("group", "supergroup"):
         if user:
@@ -461,7 +506,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif directly_addressed:
             # Directly addressed — full prompt with file creation support
             ctx_lines = list(group_context.get(chat_id, []))
-            response, files = await ask_rick(chat_id, user_text, group_context_lines=ctx_lines)
+            response, files = await ask_rick(chat_id, user_text, group_context_lines=ctx_lines, user_id=user.id if user else None)
             group_context[chat_id].append(f"Rick: {response}")
         else:
             # Random interjection — lightweight prompt
@@ -473,7 +518,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 typing.cancel()
                 return  # Rick decided to SKIP
     else:
-        response, files = await ask_rick(chat_id, user_text)
+        response, files = await ask_rick(chat_id, user_text, user_id=user.id if user else None)
     typing.cancel()
 
     await send_response(msg, response, files, context)

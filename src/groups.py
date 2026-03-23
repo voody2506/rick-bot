@@ -1,7 +1,7 @@
 """Group chat logic — combined decision + response in one Claude call."""
 import re
 import logging
-from src.memory import group_context, group_members, load_facts
+from src.memory import group_context, group_members, load_facts, load_group_user_profiles
 from src.prompts import GROUP_SYSTEM
 from src.claude import run_claude
 from src.media import web_search, web_search_x
@@ -39,6 +39,9 @@ async def maybe_respond_in_group(chat_id, username, user_message):
     if facts:
         system += "\n\nKnown facts about participants:\n" + "\n".join(f"- {f}" for f in facts[:10])
     members_list = format_members_for_prompt(chat_id)
+    user_profiles = load_group_user_profiles(chat_id)
+    if user_profiles:
+        system += "\n\n" + user_profiles
 
     update_mood(chat_id, user_message)
     scenario = get_scenario_for_prompt(chat_id)
@@ -109,6 +112,25 @@ async def _handle_search_tokens(response, prompt):
                 response = await run_claude(prompt, 60)
         except Exception as e:
             logger.warning(f"Group search failed: {e}")
+
+    # CODE: token
+    code_match = re.match(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', response.strip(), re.DOTALL | re.IGNORECASE)
+    if not code_match:
+        code_match = re.match(r'^CODE:\s*(.+)$', response.strip(), re.DOTALL | re.IGNORECASE)
+    if code_match:
+        code = code_match.group(1).strip()
+        logger.info(f"Group: Rick requested code execution: {code[:100]}")
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", "-c", code],
+                capture_output=True, text=True, timeout=10
+            )
+            output = (result.stdout or result.stderr or "no output").strip()[:1000]
+            prompt += f"\n\n[Code output:\n{output}]\n\nShare the result briefly. Do NOT output CODE: again.\nRick:"
+            response = await run_claude(prompt, 60)
+        except Exception as e:
+            logger.warning(f"Group code execution failed: {e}")
 
     return response
 
