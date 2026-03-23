@@ -16,7 +16,7 @@ from src.prompts import RICK_SYSTEM, EXTRACT_FACTS_PROMPT, SUMMARIZE_PROMPT, PRO
 from src.memory import (chat_histories, init_chat, save_history,
                         load_facts, save_facts, load_summaries, save_summary,
                         load_profile, save_profile,
-                        save_user_profile, save_user_facts, load_user_facts)
+                        save_user_profile)
 from src.claude import run_claude
 from src.media import find_created_files, find_new_workdir_files, run_generator_scripts, web_search, web_search_x
 from src.skills import load_skills_for_chat
