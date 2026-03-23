@@ -170,174 +170,122 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
 
     files = []
 
-    # Browser tokens — Rick can browse the web
-    response_stripped = (response or "").strip()
-    browse_match = re.search(r'^BROWSE:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-    click_match = re.search(r'^CLICK:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-    fill_match = re.search(r'^FILL:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-    scroll_match = re.search(r'^SCROLL:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-    close_match = re.search(r'^CLOSE_BROWSER$', response_stripped, re.IGNORECASE | re.MULTILINE)
+    # Token processing loop — Rick can chain multiple actions (max 5 iterations)
+    TOKEN_PATTERN = re.compile(
+        r'^(BROWSE|CLICK|FILL|SCROLL|CLOSE_BROWSER|SEARCH|SEARCH_X|RESEARCH|CODE|IMAGE|VIDEO):\s*(.+)$',
+        re.IGNORECASE | re.MULTILINE
+    )
+    CLOSE_PATTERN = re.compile(r'^CLOSE_BROWSER$', re.IGNORECASE | re.MULTILINE)
 
-    browser_screenshot = None  # will be sent as photo
+    for iteration in range(5):
+        response_stripped = (response or "").strip()
+        token_match = TOKEN_PATTERN.search(response_stripped)
+        close_match = CLOSE_PATTERN.search(response_stripped)
 
-    if browse_match:
-        url = browse_match.group(1).strip()
-        logger.info(f"Rick opening browser: {url}")
-        screenshot_buf, page_text = await navigate(chat_id, url)
-        if screenshot_buf:
-            # Save screenshot to file for sending
-            WORK_DIR.mkdir(parents=True, exist_ok=True)
-            ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
-            with open(ss_path, "wb") as f:
-                f.write(screenshot_buf.read())
-            browser_screenshot = ss_path
-        prompt += f"\n\n[Browser opened {url}. Page text:\n{page_text[:2000]}]\n\nDescribe what you see and what to do next. If you need info from the user — ask. Do NOT output BROWSE: again.\nRick:"
+        if not token_match and not close_match:
+            break  # No more tokens — final response
+
+        if close_match and not token_match:
+            await close_session(chat_id)
+            response = "Done browsing."
+            break
+
+        token = token_match.group(1).upper()
+        arg = token_match.group(2).strip()
+        logger.info(f"Token loop [{iteration+1}]: {token}: {arg[:80]}")
+
+        try:
+            if token == "BROWSE":
+                screenshot_buf, page_text = await navigate(chat_id, arg)
+                if screenshot_buf:
+                    WORK_DIR.mkdir(parents=True, exist_ok=True)
+                    ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+                    with open(ss_path, "wb") as f:
+                        f.write(screenshot_buf.read())
+                    files.append(ss_path)
+                prompt += f"\n\n[Browser opened {arg}. Page text:\n{page_text[:2000]}]\n\nDescribe what you see. You can use more tokens if needed.\nRick:"
+
+            elif token == "CLICK":
+                screenshot_buf, page_text = await click(chat_id, arg)
+                if screenshot_buf:
+                    WORK_DIR.mkdir(parents=True, exist_ok=True)
+                    ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+                    with open(ss_path, "wb") as f:
+                        f.write(screenshot_buf.read())
+                    files.append(ss_path)
+                prompt += f"\n\n[Clicked '{arg}'. Page text:\n{page_text[:2000]}]\nRick:"
+
+            elif token == "FILL":
+                parts = arg.split("|||")
+                if len(parts) == 2:
+                    screenshot_buf, page_text = await fill_form(chat_id, parts[0].strip(), parts[1].strip())
+                    if screenshot_buf:
+                        WORK_DIR.mkdir(parents=True, exist_ok=True)
+                        ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+                        with open(ss_path, "wb") as f:
+                            f.write(screenshot_buf.read())
+                        files.append(ss_path)
+                    prompt += f"\n\n[Filled form. {page_text}]\nRick:"
+
+            elif token == "SCROLL":
+                screenshot_buf, page_text = await scroll(chat_id, arg.lower())
+                if screenshot_buf:
+                    WORK_DIR.mkdir(parents=True, exist_ok=True)
+                    ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+                    with open(ss_path, "wb") as f:
+                        f.write(screenshot_buf.read())
+                    files.append(ss_path)
+                prompt += f"\n\n[Scrolled {arg}. Page text:\n{page_text[:2000]}]\nRick:"
+
+            elif token == "RESEARCH":
+                web_results, x_results = await asyncio.gather(
+                    web_search(arg), web_search_x(arg), return_exceptions=True
+                )
+                web_text = web_results if isinstance(web_results, str) else ""
+                x_text = x_results if isinstance(x_results, str) else ""
+                combined = ""
+                if web_text:
+                    combined += f"[Web results:\n{web_text[:2000]}]\n\n"
+                if x_text:
+                    combined += f"[X/Twitter:\n{x_text[:1500]}]\n\n"
+                prompt += f"\n\n{combined}Analyze these sources. You can use more tokens if needed.\nRick:"
+
+            elif token == "SEARCH_X":
+                results = await web_search_x(arg)
+                prompt += f"\n\n[X/Twitter results:\n{(results or 'nothing found')[:2000]}]\nRick:"
+
+            elif token == "SEARCH":
+                results = await web_search(arg)
+                prompt += f"\n\n[Web results:\n{(results or 'nothing found')[:2000]}]\nRick:"
+
+            elif token == "CODE":
+                code = arg
+                # Handle ```python blocks
+                code_block = re.search(r'```(?:python)?\s*\n(.+?)```', arg, re.DOTALL)
+                if code_block:
+                    code = code_block.group(1)
+                import subprocess as _sp
+                result = _sp.run(["python3", "-c", code.strip()], capture_output=True, text=True, timeout=10)
+                output = (result.stdout or result.stderr or "no output").strip()[:1000]
+                prompt += f"\n\n[Code output:\n{output}]\nRick:"
+
+            elif token == "IMAGE":
+                found_image = await async_search_image(arg)
+                if found_image:
+                    files.append(found_image)
+                    prompt += "\n\n[Image found and will be sent.]\nRick:"
+                else:
+                    prompt += "\n\n[Image not found.]\nRick:"
+
+            elif token == "VIDEO":
+                results = await async_search_video(arg)
+                prompt += f"\n\n[Video results:\n{(results or 'nothing found')[:1500]}]\nRick:"
+
+        except Exception as e:
+            logger.warning(f"Token {token} failed: {e}")
+            prompt += f"\n\n[{token} failed: {e}]\nRick:"
+
         response = await run_claude(prompt, timeout)
-
-    elif click_match:
-        target = click_match.group(1).strip()
-        logger.info(f"Rick clicking: {target}")
-        screenshot_buf, page_text = await click(chat_id, target)
-        if screenshot_buf:
-            WORK_DIR.mkdir(parents=True, exist_ok=True)
-            ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
-            with open(ss_path, "wb") as f:
-                f.write(screenshot_buf.read())
-            browser_screenshot = ss_path
-        prompt += f"\n\n[Clicked '{target}'. Page text:\n{page_text[:2000]}]\n\nDescribe what happened. Do NOT output CLICK: again.\nRick:"
-        response = await run_claude(prompt, timeout)
-
-    elif fill_match:
-        parts = fill_match.group(1).strip().split("|||")
-        if len(parts) == 2:
-            logger.info(f"Rick filling form: {parts[0]}")
-            screenshot_buf, page_text = await fill_form(chat_id, parts[0].strip(), parts[1].strip())
-            if screenshot_buf:
-                WORK_DIR.mkdir(parents=True, exist_ok=True)
-                ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
-                with open(ss_path, "wb") as f:
-                    f.write(screenshot_buf.read())
-                browser_screenshot = ss_path
-            prompt += f"\n\n[Filled form. {page_text}]\nRick:"
-            response = await run_claude(prompt, timeout)
-
-    elif scroll_match:
-        direction = scroll_match.group(1).strip().lower()
-        screenshot_buf, page_text = await scroll(chat_id, direction)
-        if screenshot_buf:
-            WORK_DIR.mkdir(parents=True, exist_ok=True)
-            ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
-            with open(ss_path, "wb") as f:
-                f.write(screenshot_buf.read())
-            browser_screenshot = ss_path
-        prompt += f"\n\n[Scrolled {direction}. Page text:\n{page_text[:2000]}]\nRick:"
-        response = await run_claude(prompt, timeout)
-
-    elif close_match:
-        await close_session(chat_id)
-        response = "Done browsing."
-
-    # Add browser screenshot to files
-    if browser_screenshot:
-        files = [browser_screenshot]
-
-    # Search tokens — Rick can request web/X/deep search
-    # Use re.search with MULTILINE — Rick sometimes writes text before the token
-    search_match = re.search(r'^SEARCH:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-    search_x_match = re.search(r'^SEARCH_X:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-    research_match = re.search(r'^RESEARCH:\s*(.+)$', response_stripped, re.IGNORECASE | re.MULTILINE)
-
-    if research_match:
-        query = research_match.group(1).strip()
-        logger.info(f"Rick requested RESEARCH: {query}")
-        try:
-            web_results, x_results = await asyncio.gather(
-                web_search(query),
-                web_search_x(query),
-                return_exceptions=True
-            )
-            web_text = web_results if isinstance(web_results, str) else ""
-            x_text = x_results if isinstance(x_results, str) else ""
-            combined = ""
-            if web_text:
-                combined += f"[Web results:\n{web_text[:2000]}]\n\n"
-            if x_text:
-                combined += f"[X/Twitter posts:\n{x_text[:1500]}]\n\n"
-            if combined:
-                prompt += f"\n\n{combined}Now give a deep analysis using these sources. Include source URLs in your response. Do NOT output SEARCH/SEARCH_X/RESEARCH again.\nRick:"
-                response = await run_claude(prompt, timeout, image_path=image_path)
-        except Exception as e:
-            logger.warning(f"Research failed: {e}")
-    elif search_x_match:
-        query = search_x_match.group(1).strip()
-        logger.info(f"Rick requested X search: {query}")
-        try:
-            results = await web_search_x(query)
-            if results:
-                prompt += f"\n\n[X/Twitter results for \"{query}\":\n{results[:2000]}]\n\nNow answer using these results. Include source URLs. Do NOT output SEARCH_X: again.\nRick:"
-                response = await run_claude(prompt, timeout, image_path=image_path)
-        except Exception as e:
-            logger.warning(f"X search failed: {e}")
-    elif search_match:
-        query = search_match.group(1).strip()
-        logger.info(f"Rick requested web search: {query}")
-        try:
-            results = await web_search(query)
-            if results:
-                prompt += f"\n\n[Web search results for \"{query}\":\n{results[:2000]}]\n\nNow answer the user's question using these results. Include source URLs when relevant. Do NOT output SEARCH: again.\nRick:"
-                response = await run_claude(prompt, timeout, image_path=image_path)
-        except Exception as e:
-            logger.warning(f"Web search failed: {e}")
-
-    # CODE: token — Rick wants to execute Python
-    code_match = re.search(r'^CODE:\s*```(?:python)?\s*\n(.+?)```', (response or "").strip(), re.DOTALL | re.IGNORECASE | re.MULTILINE)
-    if not code_match:
-        code_match = re.search(r'^CODE:\s*(.+)$', (response or "").strip(), re.IGNORECASE | re.MULTILINE)
-    if code_match:
-        code = code_match.group(1).strip()
-        logger.info(f"Rick requested code execution: {code[:100]}")
-        try:
-            import subprocess
-            result = subprocess.run(
-                ["python3", "-c", code],
-                capture_output=True, text=True, timeout=10
-            )
-            output = (result.stdout or result.stderr or "no output").strip()[:1000]
-            prompt += f"\n\n[Code executed. Output:\n{output}]\n\nNow share the result with the user in Rick's style. Do NOT output CODE: again.\nRick:"
-            response = await run_claude(prompt, timeout, image_path=image_path)
-        except subprocess.TimeoutExpired:
-            prompt += "\n\n[Code execution timed out after 10s]\n\nTell the user Rick-style.\nRick:"
-            response = await run_claude(prompt, timeout, image_path=image_path)
-        except Exception as e:
-            logger.warning(f"Code execution failed: {e}")
-
-    # IMAGE: token — Rick wants to find and send an image
-    image_match = re.search(r'^IMAGE:\s*(.+)$', (response or "").strip(), re.IGNORECASE | re.MULTILINE)
-    if image_match:
-        query = image_match.group(1).strip()
-        logger.info(f"Rick requested image search: {query}")
-        found_image = await async_search_image(query)
-        if found_image:
-            # Re-run Claude for a caption, add image to files
-            prompt += "\n\n[Image found and will be sent to user. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
-            response = await run_claude(prompt, timeout)
-            files = [found_image]
-        else:
-            prompt += "\n\n[Image search found nothing. Tell the user Rick-style. Do NOT output IMAGE: again.]\nRick:"
-            response = await run_claude(prompt, timeout)
-
-    # VIDEO: token — Rick wants to find and share a video
-    video_match = re.search(r'^VIDEO:\s*(.+)$', (response or "").strip(), re.IGNORECASE | re.MULTILINE)
-    if video_match:
-        query = video_match.group(1).strip()
-        logger.info(f"Rick requested video search: {query}")
-        results = await async_search_video(query)
-        if results:
-            prompt += f"\n\n[Video search results:\n{results}]\n\nShare the best video link with a Rick-style comment. Do NOT output VIDEO: again.\nRick:"
-            response = await run_claude(prompt, timeout)
-        else:
-            prompt += "\n\n[No videos found. Tell the user Rick-style. Do NOT output VIDEO: again.]\nRick:"
-            response = await run_claude(prompt, timeout)
 
     # Resolve challenge after Claude evaluates
     if answering_challenge:
