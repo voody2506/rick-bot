@@ -19,7 +19,7 @@ from src.media import (transcribe_audio, extract_video_frames, extract_video_aud
                         async_fetch_url, extract_document_text)
 from src.groups import maybe_respond_in_group, pop_pending_image
 from src.reactions import pick_reaction, set_reaction
-from src.core import ask_rick, send_response, send_text, is_rate_limited
+from src.core import ask_rick, send_response, is_rate_limited
 
 logger = logging.getLogger(__name__)
 

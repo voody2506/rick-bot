@@ -143,7 +143,7 @@ async def _handle_search_tokens(response, prompt):
             prompt += f"\n\n[Video results:\n{results}]\n\nShare the best link briefly. Do NOT output VIDEO: again.\nRick:"
             response = await run_claude(prompt, 60)
         else:
-            prompt += f"\n\n[No videos found. Tell user Rick-style. Do NOT output VIDEO: again.]\nRick:"
+            prompt += "\n\n[No videos found. Tell user Rick-style. Do NOT output VIDEO: again.]\nRick:"
             response = await run_claude(prompt, 60)
 
     # IMAGE: token — store found image for caller to send
@@ -153,12 +153,12 @@ async def _handle_search_tokens(response, prompt):
         logger.info(f"Group: Rick requested image search: {query}")
         found_image = await async_search_image(query)
         if found_image:
-            prompt += f"\n\n[Image found and will be sent. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
+            prompt += "\n\n[Image found and will be sent. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
             response = await run_claude(prompt, 60)
             # Attach image path as attribute for caller
             _pending_images[id(response)] = found_image
         else:
-            prompt += f"\n\n[Image search found nothing. Tell user Rick-style. Do NOT output IMAGE: again.]\nRick:"
+            prompt += "\n\n[Image search found nothing. Tell user Rick-style. Do NOT output IMAGE: again.]\nRick:"
             response = await run_claude(prompt, 60)
 
     return response

@@ -245,11 +245,11 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
         found_image = await async_search_image(query)
         if found_image:
             # Re-run Claude for a caption, add image to files
-            prompt += f"\n\n[Image found and will be sent to user. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
+            prompt += "\n\n[Image found and will be sent to user. Give a brief Rick-style caption. Do NOT output IMAGE: again.]\nRick:"
             response = await run_claude(prompt, timeout)
             files = [found_image]
         else:
-            prompt += f"\n\n[Image search found nothing. Tell the user Rick-style. Do NOT output IMAGE: again.]\nRick:"
+            prompt += "\n\n[Image search found nothing. Tell the user Rick-style. Do NOT output IMAGE: again.]\nRick:"
             response = await run_claude(prompt, timeout)
 
     # VIDEO: token — Rick wants to find and share a video
@@ -262,7 +262,7 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             prompt += f"\n\n[Video search results:\n{results}]\n\nShare the best video link with a Rick-style comment. Do NOT output VIDEO: again.\nRick:"
             response = await run_claude(prompt, timeout)
         else:
-            prompt += f"\n\n[No videos found. Tell the user Rick-style. Do NOT output VIDEO: again.]\nRick:"
+            prompt += "\n\n[No videos found. Tell the user Rick-style. Do NOT output VIDEO: again.]\nRick:"
             response = await run_claude(prompt, timeout)
 
     # Resolve challenge after Claude evaluates
