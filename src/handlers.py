@@ -386,18 +386,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_name_called = any(name in text_lower for name in RICK_NAMES)
         directly_addressed = is_mentioned or is_reply_to_bot or is_name_called
 
-        # Detect if someone needs help (question or request)
-        HELP_MARKERS = [
-            "?", "кто знает", "подскажите", "помогите", "как сделать", "как можно",
-            "не могу", "не получается", "не работает", "не понимаю", "что делать",
-            "посоветуйте", "как быть", "где найти", "кто-нибудь", "есть идеи",
-            "help", "how to", "how do", "anyone know", "can someone",
-            "что думаете", "ваше мнение", "как считаете",
-        ]
-        needs_help = any(m in text_lower for m in HELP_MARKERS)
-
-        # Pre-filter: always respond if help needed, otherwise 15% random chance
-        if not directly_addressed and not needs_help and random.random() > GROUP_RANDOM_CHANCE:
+        # Pre-filter: Claude decides whether to respond or SKIP
+        if not directly_addressed and random.random() > GROUP_RANDOM_CHANCE:
             return  # silently skip — save API call
 
         if bot_username:
