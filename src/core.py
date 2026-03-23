@@ -364,32 +364,74 @@ async def send_text(msg, text):
 
 async def send_response(msg, response, files, context):
     """Send text OR voice, plus any created files. Supports multi-message via ---."""
-    parts = [p.strip() for p in response.split("---") if p.strip()]
+    IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 
-    if len(parts) > 1:
-        for i, part in enumerate(parts):
-            if i == len(parts) - 1:
-                voice = await generate_voice(part)
-                if voice:
-                    try:
-                        await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
-                    except Exception:
+    # Check if we have an image file — send as photo with caption instead of separate text + document
+    image_file = None
+    other_files = []
+    for f in files:
+        if any(f.lower().endswith(ext) for ext in IMAGE_EXTS) and not image_file:
+            image_file = f
+        else:
+            other_files.append(f)
+
+    if image_file:
+        # Send image as photo with response text as caption
+        caption = response[:1024] if response else ""  # Telegram caption limit
+        try:
+            with open(image_file, "rb") as f:
+                await context.bot.send_photo(
+                    chat_id=msg.chat_id,
+                    photo=f,
+                    caption=caption,
+                    parse_mode="Markdown"
+                )
+        except Exception:
+            try:
+                with open(image_file, "rb") as f:
+                    await context.bot.send_photo(
+                        chat_id=msg.chat_id,
+                        photo=f,
+                        caption=caption,
+                        parse_mode=None
+                    )
+            except Exception as e:
+                logger.warning(f"Photo send error: {e}")
+                await send_text(msg, response)
+        try:
+            if str(WORK_DIR) in image_file:
+                os.unlink(image_file)
+        except Exception:
+            pass
+        files = other_files
+        # Skip normal text sending — caption already has it
+    else:
+        parts = [p.strip() for p in response.split("---") if p.strip()]
+
+        if len(parts) > 1:
+            for i, part in enumerate(parts):
+                if i == len(parts) - 1:
+                    voice = await generate_voice(part)
+                    if voice:
+                        try:
+                            await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
+                        except Exception:
+                            await send_text(msg, part)
+                    else:
                         await send_text(msg, part)
                 else:
                     await send_text(msg, part)
-            else:
-                await send_text(msg, part)
-                await asyncio.sleep(1)
-    else:
-        voice = await generate_voice(response)
-        if voice:
-            try:
-                await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
-            except Exception as e:
-                logger.warning(f"TTS send error: {e}")
-                await send_text(msg, response)
+                    await asyncio.sleep(1)
         else:
-            await send_text(msg, response)
+            voice = await generate_voice(response)
+            if voice:
+                try:
+                    await context.bot.send_voice(chat_id=msg.chat_id, voice=voice)
+                except Exception as e:
+                    logger.warning(f"TTS send error: {e}")
+                    await send_text(msg, response)
+            else:
+                await send_text(msg, response)
 
     gif_sent = await maybe_send_gif(response, context.bot, msg.chat_id)
     sticker_id = pick_sticker(response) if not gif_sent else None
