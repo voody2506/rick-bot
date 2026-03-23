@@ -20,6 +20,7 @@ from src.memory import (chat_histories, init_chat, save_history,
 from src.claude import run_claude
 from src.media import (find_created_files, find_new_workdir_files, run_generator_scripts,
                         web_search, web_search_x, async_search_image, async_search_video)
+from src.browser import navigate, click, scroll, fill_form, close_session
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -167,8 +168,80 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
     timeout = 300 if any(kw in msg_lower for kw in FILE_KEYWORDS) else 120
     response = await run_claude(prompt, timeout, image_path=image_path)
 
-    # Search tokens — Rick can request web/X/deep search
+    files = []
+
+    # Browser tokens — Rick can browse the web
     response_stripped = (response or "").strip()
+    browse_match = re.match(r'^BROWSE:\s*(.+)$', response_stripped, re.IGNORECASE)
+    click_match = re.match(r'^CLICK:\s*(.+)$', response_stripped, re.IGNORECASE)
+    fill_match = re.match(r'^FILL:\s*(.+)$', response_stripped, re.IGNORECASE)
+    scroll_match = re.match(r'^SCROLL:\s*(.+)$', response_stripped, re.IGNORECASE)
+    close_match = re.match(r'^CLOSE_BROWSER$', response_stripped, re.IGNORECASE)
+
+    browser_screenshot = None  # will be sent as photo
+
+    if browse_match:
+        url = browse_match.group(1).strip()
+        logger.info(f"Rick opening browser: {url}")
+        screenshot_buf, page_text = await navigate(chat_id, url)
+        if screenshot_buf:
+            # Save screenshot to file for sending
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+            with open(ss_path, "wb") as f:
+                f.write(screenshot_buf.read())
+            browser_screenshot = ss_path
+        prompt += f"\n\n[Browser opened {url}. Page text:\n{page_text[:2000]}]\n\nDescribe what you see and what to do next. If you need info from the user — ask. Do NOT output BROWSE: again.\nRick:"
+        response = await run_claude(prompt, timeout)
+
+    elif click_match:
+        target = click_match.group(1).strip()
+        logger.info(f"Rick clicking: {target}")
+        screenshot_buf, page_text = await click(chat_id, target)
+        if screenshot_buf:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+            with open(ss_path, "wb") as f:
+                f.write(screenshot_buf.read())
+            browser_screenshot = ss_path
+        prompt += f"\n\n[Clicked '{target}'. Page text:\n{page_text[:2000]}]\n\nDescribe what happened. Do NOT output CLICK: again.\nRick:"
+        response = await run_claude(prompt, timeout)
+
+    elif fill_match:
+        parts = fill_match.group(1).strip().split("|||")
+        if len(parts) == 2:
+            logger.info(f"Rick filling form: {parts[0]}")
+            screenshot_buf, page_text = await fill_form(chat_id, parts[0].strip(), parts[1].strip())
+            if screenshot_buf:
+                WORK_DIR.mkdir(parents=True, exist_ok=True)
+                ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+                with open(ss_path, "wb") as f:
+                    f.write(screenshot_buf.read())
+                browser_screenshot = ss_path
+            prompt += f"\n\n[Filled form. {page_text}]\nRick:"
+            response = await run_claude(prompt, timeout)
+
+    elif scroll_match:
+        direction = scroll_match.group(1).strip().lower()
+        screenshot_buf, page_text = await scroll(chat_id, direction)
+        if screenshot_buf:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            ss_path = str(WORK_DIR / f"browse_{chat_id}_{int(time.time())}.png")
+            with open(ss_path, "wb") as f:
+                f.write(screenshot_buf.read())
+            browser_screenshot = ss_path
+        prompt += f"\n\n[Scrolled {direction}. Page text:\n{page_text[:2000]}]\nRick:"
+        response = await run_claude(prompt, timeout)
+
+    elif close_match:
+        await close_session(chat_id)
+        response = "Done browsing."
+
+    # Add browser screenshot to files
+    if browser_screenshot:
+        files = [browser_screenshot]
+
+    # Search tokens — Rick can request web/X/deep search
     search_match = re.match(r'^SEARCH:\s*(.+)$', response_stripped, re.IGNORECASE)
     search_x_match = re.match(r'^SEARCH_X:\s*(.+)$', response_stripped, re.IGNORECASE)
     research_match = re.match(r'^RESEARCH:\s*(.+)$', response_stripped, re.IGNORECASE)
@@ -270,7 +343,7 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
         resolve_challenge(chat_id)
 
     # Check for created files even if response is empty (CLI may create files without text output)
-    files = list(set(find_created_files(response or "") + find_new_workdir_files(start_time)))
+    files = files + list(set(find_created_files(response or "") + find_new_workdir_files(start_time)))
 
     # If CLI created .py scripts, execute them to generate actual output files (.pptx, etc.)
     files = run_generator_scripts(files, start_time)
