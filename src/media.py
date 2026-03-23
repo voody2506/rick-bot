@@ -176,6 +176,41 @@ async def async_search_image(query: str) -> str | None:
     return await loop.run_in_executor(None, search_and_download_image, query)
 
 
+def search_video_sync(query: str) -> str:
+    """Search for videos via Tavily. Returns formatted results with URLs."""
+    if not TAVILY_API_KEY:
+        return ""
+    try:
+        video_query = f"site:youtube.com {query}"
+        payload = json.dumps({
+            "api_key": TAVILY_API_KEY,
+            "query": video_query,
+            "max_results": 3,
+            "search_depth": "basic"
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.tavily.com/search",
+            data=payload, method="POST",
+            headers={"Content-Type": "application/json"}
+        )
+        resp = urllib.request.urlopen(req, timeout=15)
+        data = json.loads(resp.read())
+        results = []
+        for r in data.get("results", []):
+            url = r.get("url", "")
+            results.append(f"[{r['title']}] ({url}): {r['content'][:200]}")
+        return "\n\n".join(results) if results else ""
+    except Exception as e:
+        logger.warning(f"Video search failed: {e}")
+        return ""
+
+
+async def async_search_video(query: str) -> str:
+    """Async wrapper for video search."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, search_video_sync, query)
+
+
 def fetch_url_content(url: str, max_chars: int = 3000) -> str:
     """Fetch text content from a URL. Returns extracted text or empty string."""
     try:

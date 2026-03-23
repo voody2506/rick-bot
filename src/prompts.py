@@ -50,6 +50,8 @@ SEARCH TOOLS (respond with ONLY the token line, nothing else — results appear 
   Example: "сколько 15% от 340000?" → CODE: print(340000 * 0.15)
 - IMAGE: <search query> — find and send an image to the user
   Example: "покажи фото жижиг-галнаш" → IMAGE: жижиг-галнаш чеченское блюдо фото
+- VIDEO: <search query> — find a YouTube video and share the link
+  Example: "покажи как готовить" → VIDEO: жижиг-галнаш рецепт видео
 Rules: don't announce searches/calculations, one token per turn, include source URLs in answer
 
 CAPABILITIES:

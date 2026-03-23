@@ -19,7 +19,7 @@ from src.memory import (chat_histories, init_chat, save_history,
                         save_user_profile)
 from src.claude import run_claude
 from src.media import (find_created_files, find_new_workdir_files, run_generator_scripts,
-                        web_search, web_search_x, async_search_image)
+                        web_search, web_search_x, async_search_image, async_search_video)
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -250,6 +250,19 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
             files = [found_image]
         else:
             prompt += f"\n\n[Image search found nothing. Tell the user Rick-style. Do NOT output IMAGE: again.]\nRick:"
+            response = await run_claude(prompt, timeout)
+
+    # VIDEO: token — Rick wants to find and share a video
+    video_match = re.match(r'^VIDEO:\s*(.+)$', (response or "").strip(), re.IGNORECASE)
+    if video_match:
+        query = video_match.group(1).strip()
+        logger.info(f"Rick requested video search: {query}")
+        results = await async_search_video(query)
+        if results:
+            prompt += f"\n\n[Video search results:\n{results}]\n\nShare the best video link with a Rick-style comment. Do NOT output VIDEO: again.\nRick:"
+            response = await run_claude(prompt, timeout)
+        else:
+            prompt += f"\n\n[No videos found. Tell the user Rick-style. Do NOT output VIDEO: again.]\nRick:"
             response = await run_claude(prompt, timeout)
 
     # Resolve challenge after Claude evaluates

@@ -2,7 +2,7 @@
 import re
 import logging
 from src.memory import group_context, group_members, load_facts, load_group_user_profiles
-from src.media import async_search_image
+from src.media import async_search_image, async_search_video
 from src.prompts import GROUP_SYSTEM
 from src.claude import run_claude
 from src.media import web_search, web_search_x
@@ -132,6 +132,19 @@ async def _handle_search_tokens(response, prompt):
             response = await run_claude(prompt, 60)
         except Exception as e:
             logger.warning(f"Group code execution failed: {e}")
+
+    # VIDEO: token
+    video_match = re.match(r'^VIDEO:\s*(.+)$', response.strip(), re.IGNORECASE)
+    if video_match:
+        query = video_match.group(1).strip()
+        logger.info(f"Group: Rick requested video search: {query}")
+        results = await async_search_video(query)
+        if results:
+            prompt += f"\n\n[Video results:\n{results}]\n\nShare the best link briefly. Do NOT output VIDEO: again.\nRick:"
+            response = await run_claude(prompt, 60)
+        else:
+            prompt += f"\n\n[No videos found. Tell user Rick-style. Do NOT output VIDEO: again.]\nRick:"
+            response = await run_claude(prompt, 60)
 
     # IMAGE: token — store found image for caller to send
     image_match = re.match(r'^IMAGE:\s*(.+)$', response.strip(), re.IGNORECASE)
