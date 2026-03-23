@@ -13,7 +13,7 @@ CLAUDE_TIMEOUT = int(os.getenv("CLAUDE_TIMEOUT", "90"))
 
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", "20"))
 MAX_FACTS = int(os.getenv("MAX_FACTS", "50"))
-GROUP_RANDOM_CHANCE = float(os.getenv("GROUP_RANDOM_CHANCE", "0.40"))
+GROUP_RANDOM_CHANCE = float(os.getenv("GROUP_RANDOM_CHANCE", "0.25"))
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny")
 TIMEZONE = os.getenv("TIMEZONE", "America/New_York")
 
