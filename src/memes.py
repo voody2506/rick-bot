@@ -7,17 +7,22 @@ from src.mood_detect import detect_mood
 
 logger = logging.getLogger(__name__)
 
-GIF_CHANCE = 0.05  # 5% chance — very rare
+GIF_CHANCE = 0.12  # 12% chance
 
-# Mood -> search query for GIFs
+# Mood -> Rick and Morty themed GIF searches
 MOOD_SEARCHES = {
-    "facepalm": "facepalm meme gif",
-    "genius": "genius big brain meme gif",
-    "drunk": "drunk meme gif funny",
-    "angry": "angry rage meme gif",
-    "laugh": "laughing meme gif reaction",
-    "whatever": "whatever bored meme gif",
-    "science": "science meme gif nerd",
+    "facepalm": "rick and morty facepalm gif",
+    "genius": "rick sanchez genius gif",
+    "drunk": "rick sanchez drinking gif",
+    "angry": "rick sanchez angry gif",
+    "laugh": "rick and morty laughing gif",
+    "whatever": "rick sanchez bored gif",
+    "science": "rick sanchez science gif",
+    "evil": "rick sanchez evil gif",
+    "cool": "rick sanchez cool gif",
+    "scared": "rick and morty scared gif",
+    "pickle": "pickle rick gif",
+    "party": "rick and morty party gif",
 }
 
 # Cache: mood -> list of GIF URLs (filled on first search)
@@ -59,9 +64,6 @@ def _search_gif_sync(query: str) -> list[str]:
 
 async def maybe_send_gif(response_text: str, bot, chat_id: int) -> bool:
     """Maybe send a relevant GIF. Returns True if sent."""
-    if len(response_text) > 100:
-        return False
-
     mood = detect_mood(response_text)
     if not mood:
         return False

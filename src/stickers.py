@@ -5,7 +5,7 @@ from src.mood_detect import detect_mood
 
 logger = logging.getLogger(__name__)
 
-STICKER_CHANCE = 0.10  # 10% chance on short messages
+STICKER_CHANCE = 0.20  # 20% chance
 
 # Sticker file_ids grouped by mood (from RickAndMorty, MrPoopy, Meeseeks packs)
 STICKERS = {
@@ -60,9 +60,6 @@ STICKERS = {
 
 def pick_sticker(response_text: str) -> str | None:
     """Pick a sticker for Rick's response, or None."""
-    if len(response_text) > 150:
-        return None
-
     if random.random() > STICKER_CHANCE:
         return None
 
