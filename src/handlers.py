@@ -429,10 +429,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("Morty, shut up for a minute. You're spamming.")
         return
 
-    # React to user's message
-    emoji = pick_reaction(user_text)
-    if emoji:
-        await set_reaction(context.bot, chat_id, msg.message_id, emoji)
+    # React to user's message (skip in quiet modes)
+    if not is_quiet(chat_id):
+        emoji = pick_reaction(user_text)
+        if emoji:
+            await set_reaction(context.bot, chat_id, msg.message_id, emoji)
 
     # Inject forwarded message content (python-telegram-bot v21+ uses forward_origin)
     if msg.forward_origin:
