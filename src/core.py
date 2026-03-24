@@ -386,6 +386,9 @@ Return ONLY valid JSON. Russian language for all text content."""
 
     # Check for created files even if response is empty (CLI may create files without text output)
     files = files + list(set(find_created_files(response or "") + find_new_workdir_files(start_time)))
+    # Don't send .html files as documents — they're useless in Telegram;
+    # charts/diagrams should use PAGE: token which gives a web link instead
+    files = [f for f in files if not f.endswith('.html')]
 
     # If CLI created .py scripts, execute them to generate actual output files (.pptx, etc.)
     files = run_generator_scripts(files, start_time)

@@ -6,26 +6,69 @@
 <title>{{title}}</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #fff; color: #222; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
-.header { padding: 32px 20px 16px; max-width: 900px; margin: 0 auto; }
-.header h1 { font-size: 22px; font-weight: 700; }
-.header p { color: #999; font-size: 13px; margin-top: 2px; }
-.diagram-container { max-width: 900px; margin: 16px auto; padding: 16px 20px; overflow-x: auto; }
-.diagram-container svg { max-width: 100%; height: auto; }
-.note { max-width: 900px; margin: 16px auto; padding: 16px 20px; color: #666; line-height: 1.6; font-size: 14px; border-top: 1px solid #eee; }
-.footer { text-align: center; padding: 20px; color: #ddd; font-size: 11px; }
+body { background: #0f0f0f; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+.header { padding: 32px 24px 12px; max-width: 960px; margin: 0 auto; }
+.header h1 { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.3; }
+.header p { color: #888; font-size: 14px; margin-top: 6px; line-height: 1.5; }
+.diagram-wrap { max-width: 960px; margin: 20px auto; padding: 24px; }
+.diagram-box { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 16px; padding: 32px 24px; overflow-x: auto; }
+.diagram-box svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.note { max-width: 960px; margin: 0 auto; padding: 16px 24px 32px; }
+.note-content { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 16px 20px; color: #aaa; line-height: 1.7; font-size: 14px; }
+.footer { text-align: center; padding: 20px; color: #333; font-size: 11px; }
+
+/* Mermaid overrides */
+.mermaid { line-height: 1.4; }
+.node rect, .node circle, .node ellipse, .node polygon { rx: 8; ry: 8; }
+.label { font-size: 13px !important; }
+.edgeLabel { font-size: 12px !important; background: #1a1a2e !important; }
 </style>
 </head>
 <body>
 <div class="header"><h1>{{title}}</h1><p>{{subtitle}}</p></div>
-<div class="diagram-container"><pre class="mermaid">{{diagram}}</pre></div>
-<div class="note" id="note"></div>
+<div class="diagram-wrap"><div class="diagram-box"><pre class="mermaid">{{diagram}}</pre></div></div>
+<div class="note"><div class="note-content" id="note"></div></div>
 <div class="footer">Rick Sanchez C-137</div>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+mermaid.initialize({
+  startOnLoad: true,
+  securityLevel: 'loose',
+  theme: 'base',
+  themeVariables: {
+    darkMode: true,
+    background: '#1a1a2e',
+    primaryColor: '#2d2b55',
+    primaryTextColor: '#e0e0e0',
+    primaryBorderColor: '#4a4a6a',
+    secondaryColor: '#1e3a5f',
+    secondaryTextColor: '#c0c0c0',
+    secondaryBorderColor: '#3a5a7a',
+    tertiaryColor: '#2a1a3e',
+    tertiaryTextColor: '#d0c0e0',
+    tertiaryBorderColor: '#5a4a6a',
+    lineColor: '#5a5a8a',
+    textColor: '#d0d0d0',
+    mainBkg: '#2d2b55',
+    nodeBorder: '#4a4a6a',
+    clusterBkg: '#16162e',
+    clusterBorder: '#3a3a5e',
+    titleColor: '#fff',
+    edgeLabelBackground: '#1a1a2e',
+    nodeTextColor: '#e0e0e0',
+    fontSize: '14px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
+  },
+  flowchart: { curve: 'basis', padding: 16, nodeSpacing: 40, rankSpacing: 50, htmlLabels: true, useMaxWidth: true },
+  sequence: { useMaxWidth: true, boxMargin: 8 },
+  mindmap: { useMaxWidth: true }
+});
 const note = {{note}};
-if (note) document.getElementById('note').textContent = note;
+if (note) {
+  document.getElementById('note').textContent = note;
+} else {
+  document.querySelector('.note').style.display = 'none';
+}
 </script>
 </body>
 </html>

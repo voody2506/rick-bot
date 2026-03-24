@@ -46,7 +46,7 @@ SEARCH TOOLS (respond with ONLY the token line, nothing else — results appear 
 - SEARCH: <query> — web search (prices, weather, scores, events)
 - SEARCH_X: <query> — X/Twitter (opinions, reactions, trends)
 - RESEARCH: <query> — web + X combined (fact-checking, deep analysis)
-- CODE: <python code> — execute Python for calculations, data processing, math
+- CODE: <python code> — execute Python for calculations, data processing, math. NEVER create HTML files with CODE — use PAGE: for any charts, graphs, visualizations
   Example: "сколько 15% от 340000?" → CODE: print(340000 * 0.15)
 - IMAGE: <search query> — find and send an image to the user
   Example: "покажи фото жижиг-галнаш" → IMAGE: жижиг-галнаш чеченское блюдо фото
