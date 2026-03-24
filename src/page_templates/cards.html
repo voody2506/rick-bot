@@ -5,121 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{title}}</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;700&display=swap');
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #1a1a2e; color: #e0e0e0; font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
-
-/* Portal animation */
-.portal-overlay { position: fixed; inset: 0; background: #0a0a15; z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: opacity 0.8s; }
-.portal-overlay.hide { opacity: 0; pointer-events: none; }
-.portal { width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(ellipse, #39ff14 0%, #00b894 30%, #006655 60%, transparent 70%); animation: portalSpin 1.5s linear infinite, portalPulse 2s ease-in-out infinite; box-shadow: 0 0 60px #39ff1466, 0 0 120px #39ff1433, inset 0 0 40px #00000066; position: relative; }
-.portal::after { content: ''; position: absolute; inset: 15%; border-radius: 50%; background: radial-gradient(ellipse, #0a0a15 0%, #39ff1433 60%, transparent 70%); animation: portalInner 1s linear infinite reverse; }
-@keyframes portalSpin { from { transform: rotate(0deg) scaleX(1); } 50% { transform: rotate(180deg) scaleX(0.85); } to { transform: rotate(360deg) scaleX(1); } }
-@keyframes portalPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
-@keyframes portalInner { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.portal-text { font-family: 'Bangers', cursive; color: #39ff14; font-size: 20px; margin-top: 24px; letter-spacing: 2px; animation: glitch 3s infinite; }
-@keyframes glitch { 0%, 90%, 100% { opacity: 1; transform: translate(0); } 92% { opacity: 0.8; transform: translate(-2px, 1px); color: #00b894; } 94% { opacity: 0.9; transform: translate(2px, -1px); color: #39ff14; } 96% { opacity: 0.7; transform: translate(-1px, -2px); } }
-
-/* Main content */
-.page { opacity: 0; transform: translateY(20px); transition: all 0.6s ease-out; }
-.page.show { opacity: 1; transform: translateY(0); }
-.header { padding: 32px 24px 16px; max-width: 960px; margin: 0 auto; }
-.header h1 { font-family: 'Bangers', cursive; font-size: 32px; color: #39ff14; letter-spacing: 1px; text-shadow: 0 0 20px #39ff1433; }
-.header p { color: #888; font-size: 13px; margin-top: 4px; }
-.search { padding: 8px 24px 12px; max-width: 960px; margin: 0 auto; position: sticky; top: 0; background: #1a1a2e; z-index: 10; }
-.search input { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #333; background: #222244; color: #e0e0e0; font-size: 15px; outline: none; }
-.search input:focus { border-color: #39ff14; box-shadow: 0 0 8px #39ff1422; }
-.search input::placeholder { color: #666; }
-.counter { padding: 0 24px 8px; max-width: 960px; margin: 0 auto; color: #666; font-size: 13px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 24px 32px; max-width: 960px; margin: 0 auto; }
-.card { background: #222244; border-radius: 12px; overflow: hidden; border: 1px solid #333; transition: transform 0.2s, border-color 0.2s; }
-.card:hover { transform: translateY(-3px); border-color: #39ff1444; }
-.card-img { width: 100%; height: 160px; object-fit: cover; background: #16163a; }
-.card-body { padding: 14px; }
-.card-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-.card-desc { font-size: 13px; color: #999; line-height: 1.5; margin-bottom: 10px; }
-.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
-.tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; background: #39ff1412; color: #39ff14; border: 1px solid #39ff1433; }
-.card-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #ffffff0d; }
-.price { font-size: 17px; font-weight: 700; color: #39ff14; }
-.rating { color: #f5a623; font-size: 13px; }
-.footer { text-align: center; padding: 24px; color: #444; font-size: 11px; font-family: 'Bangers', cursive; letter-spacing: 1px; }
-
-/* Floating particles */
-.particles { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
-.particle { position: absolute; width: 3px; height: 3px; background: #39ff14; border-radius: 50%; opacity: 0; animation: float 8s infinite; }
-@keyframes float { 0% { opacity: 0; transform: translateY(100vh) scale(0); } 10% { opacity: 0.4; } 90% { opacity: 0.1; } 100% { opacity: 0; transform: translateY(-20px) scale(1); } }
+body { background: #fff; color: #222; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+.header { padding: 32px 20px 16px; max-width: 680px; margin: 0 auto; }
+.header h1 { font-size: 22px; font-weight: 700; }
+.header p { color: #999; font-size: 13px; margin-top: 2px; }
+.search { padding: 4px 20px 12px; max-width: 680px; margin: 0 auto; position: sticky; top: 0; background: #fff; z-index: 10; }
+.search input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #e0e0e0; font-size: 15px; outline: none; background: #fafafa; }
+.search input:focus { border-color: #bbb; background: #fff; }
+.counter { padding: 0 20px 6px; max-width: 680px; margin: 0 auto; color: #bbb; font-size: 12px; }
+.list { max-width: 680px; margin: 0 auto; padding: 0 20px 32px; }
+.card { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #f0f0f0; }
+.card:last-child { border-bottom: none; }
+.card-img { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; background: #f5f5f5; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #ccc; }
+.card-body { flex: 1; min-width: 0; }
+.card-title { font-size: 15px; font-weight: 600; }
+.card-desc { font-size: 13px; color: #888; margin-top: 2px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.tag { padding: 2px 7px; border-radius: 4px; font-size: 11px; background: #f5f5f5; color: #666; }
+.price { font-size: 14px; font-weight: 700; }
+.rating { color: #f5a623; font-size: 12px; }
+.footer { text-align: center; padding: 20px; color: #ddd; font-size: 11px; }
 </style>
 </head>
 <body>
-
-<div class="portal-overlay" id="portalOverlay">
-  <div class="portal"></div>
-  <div class="portal-text">LOADING FROM DIMENSION C-137...</div>
-</div>
-
-<div class="particles" id="particles"></div>
-
-<div class="page" id="page">
-  <div class="header">
-    <h1>{{title}}</h1>
-    <p>{{subtitle}}</p>
-  </div>
-  <div class="search">
-    <input type="text" id="searchInput" placeholder="Поиск..." oninput="filterCards()">
-  </div>
-  <div class="counter" id="counter"></div>
-  <div class="grid" id="grid"></div>
-  <div class="footer">RICK SANCHEZ C-137 — WUBBA LUBBA DUB DUB</div>
-</div>
-
+<div class="header"><h1>{{title}}</h1><p>{{subtitle}}</p></div>
+<div class="search"><input type="text" id="si" placeholder="Поиск..." oninput="f()"></div>
+<div class="counter" id="c"></div>
+<div class="list" id="list"></div>
+<div class="footer">Rick Sanchez C-137</div>
 <script>
-// Portal animation
-setTimeout(() => {
-  document.getElementById('portalOverlay').classList.add('hide');
-  document.getElementById('page').classList.add('show');
-}, 2500);
-
-// Particles
-const pc = document.getElementById('particles');
-for (let i = 0; i < 20; i++) {
-  const p = document.createElement('div');
-  p.className = 'particle';
-  p.style.left = Math.random() * 100 + '%';
-  p.style.animationDelay = Math.random() * 8 + 's';
-  p.style.animationDuration = (6 + Math.random() * 4) + 's';
-  pc.appendChild(p);
-}
-
-// Cards
-const DATA = {{data}};
-function renderCards(items) {
-  const grid = document.getElementById('grid');
-  document.getElementById('counter').textContent = items.length + ' шт.';
-  grid.innerHTML = items.map(item => `
-    <div class="card">
-      ${item.image ? `<img class="card-img" src="${item.image}" alt="${item.title}" onerror="this.style.display='none'">` : ''}
-      <div class="card-body">
-        <div class="card-title">${item.title}</div>
-        <div class="card-desc">${item.description || ''}</div>
-        ${item.tags ? `<div class="card-tags">${item.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
-        <div class="card-footer">
-          ${item.price ? `<span class="price">${item.price}</span>` : '<span></span>'}
-          ${item.rating ? `<span class="rating">${'★'.repeat(Math.round(item.rating))}${'☆'.repeat(5-Math.round(item.rating))} ${item.rating}</span>` : ''}
-        </div>
+const D={{data}};
+function r(items){
+  document.getElementById('c').textContent=items.length+' шт.';
+  document.getElementById('list').innerHTML=items.map(i=>`<div class="card">
+    ${i.image?`<img class="card-img" src="${i.image}" onerror="this.outerHTML='<div class=card-img>📦</div>'">`:'<div class="card-img">📦</div>'}
+    <div class="card-body">
+      <div class="card-title">${i.title}</div>
+      <div class="card-desc">${i.description||''}</div>
+      <div class="card-meta">
+        ${i.price?`<span class="price">${i.price}</span>`:''}
+        ${i.rating?`<span class="rating">${'★'.repeat(Math.round(i.rating))} ${i.rating}</span>`:''}
+        ${(i.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
       </div>
     </div>
-  `).join('');
+  </div>`).join('');
 }
-function filterCards() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  renderCards(DATA.filter(item =>
-    item.title.toLowerCase().includes(q) ||
-    (item.description || '').toLowerCase().includes(q) ||
-    (item.tags || []).some(t => t.toLowerCase().includes(q))
-  ));
-}
-renderCards(DATA);
+function f(){const q=document.getElementById('si').value.toLowerCase();r(D.filter(i=>i.title.toLowerCase().includes(q)||(i.description||'').toLowerCase().includes(q)||(i.tags||[]).some(t=>t.toLowerCase().includes(q))));}
+r(D);
 </script>
 </body>
 </html>
