@@ -56,7 +56,7 @@ async def navigate(chat_id: int, url: str) -> tuple[io.BytesIO | None, str]:
     try:
         session = await _get_or_create_session(chat_id)
         page = session["page"]
-        await page.goto(url, timeout=15000, wait_until="domcontentloaded")
+        await page.goto(url, timeout=20000, wait_until="networkidle")
         await page.wait_for_timeout(2000)
         session["url"] = url
 
