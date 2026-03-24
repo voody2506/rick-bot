@@ -290,7 +290,14 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
                     code = code_block.group(1)
                 import subprocess as _sp
                 WORK_DIR.mkdir(parents=True, exist_ok=True)
-                result = _sp.run(["python3", "-c", code.strip()], capture_output=True, text=True, timeout=30, cwd=str(WORK_DIR))
+                script_path = str(WORK_DIR / f"_rick_code_{chat_id}.py")
+                with open(script_path, "w") as sf:
+                    sf.write(code.strip())
+                result = _sp.run(["python3", script_path], capture_output=True, text=True, timeout=30, cwd=str(WORK_DIR))
+                try:
+                    os.unlink(script_path)
+                except Exception:
+                    pass
                 output = (result.stdout or result.stderr or "no output").strip()[:1000]
                 prompt += f"\n\n[Code output:\n{output}]\nRick:"
 
