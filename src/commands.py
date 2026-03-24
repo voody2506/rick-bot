@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.config import OWNER_ID, SKILLS_DIR
 from src.memory import chat_histories, save_history, load_facts, save_facts
-from src.quiet import is_quiet, toggle_quiet
+from src.quiet import toggle_quiet
 from src.skills import search_clawhub, install_clawhub_skill
 from src.scheduler import scheduler
 from src.news import load_news_config, save_news_config, send_daily_news

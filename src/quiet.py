@@ -1,7 +1,6 @@
 """Quiet mode — Rick only responds when directly mentioned."""
 import json
 import logging
-from pathlib import Path
 from src.config import BASE_DIR
 
 logger = logging.getLogger(__name__)
