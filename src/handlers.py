@@ -161,7 +161,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Try to download and extract text
     doc_text = ""
     doc_path = None
-    READABLE_EXTS = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
+    READABLE_EXTS = (".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".md", ".csv", ".json",
                      ".py", ".js", ".html", ".css", ".log")
     if any(filename.lower().endswith(ext) for ext in READABLE_EXTS):
         try:

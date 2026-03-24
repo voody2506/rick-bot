@@ -137,6 +137,20 @@ def extract_document_text(file_path: str, max_chars: int = 4000) -> str:
             from docx import Document
             doc = Document(file_path)
             text = "\n".join(p.text for p in doc.paragraphs)
+        elif ext in (".xlsx", ".xls"):
+            from openpyxl import load_workbook
+            wb = load_workbook(file_path, read_only=True, data_only=True)
+            parts = []
+            for sheet in wb.worksheets[:5]:
+                rows = []
+                for row in sheet.iter_rows(max_row=200, values_only=True):
+                    cells = [str(c) if c is not None else "" for c in row]
+                    if any(cells):
+                        rows.append("\t".join(cells))
+                if rows:
+                    parts.append(f"[{sheet.title}]\n" + "\n".join(rows))
+            wb.close()
+            text = "\n\n".join(parts)
         elif ext in (".txt", ".md", ".csv", ".json", ".py", ".js", ".html", ".css", ".log"):
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 text = f.read()
