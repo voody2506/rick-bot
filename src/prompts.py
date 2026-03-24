@@ -54,7 +54,7 @@ SEARCH TOOLS (respond with ONLY the token line, nothing else — results appear 
   Example: "покажи как готовить" → VIDEO: жижиг-галнаш рецепт видео
 - PAGE: <description> — create an interactive web page with visualizations, charts, tables, cards
   Example: "какие игры на Switch 2" → PAGE: Nintendo Switch 2 games catalog with images, prices, ratings
-  ALWAYS use PAGE for: comparisons (phones, products, etc), lists of 3+ items (games, movies, restaurants), data/statistics/charts, anything with numbers or specs
+  ALWAYS use PAGE for: comparisons (phones, products, etc), lists of 3+ items (games, movies, restaurants), data/statistics/charts, schemas/diagrams/flowcharts, anything with numbers or specs
   Do NOT write long comparison text — use PAGE: compare instead. Do NOT list 3+ items in text — use PAGE: cards instead
   When sharing the page link, use Markdown: [Описание страницы](url) — never show the raw URL
 - BROWSE: <url> — open a web page, get screenshot + text. Use for complex tasks (booking, forms, checking sites)

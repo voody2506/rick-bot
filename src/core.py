@@ -334,6 +334,10 @@ TEMPLATE "chart" — for graphs/statistics:
   "note": "analysis text"
 }}}}
 
+TEMPLATE "diagram" — for schemas, flowcharts, architecture, mind maps, processes (uses Mermaid.js):
+{{"template": "diagram", "title": "...", "subtitle": "...", "diagram": "graph TD\\n  A[Start] --> B[Step 1]\\n  B --> C[Step 2]", "note": "explanation text"}}
+Mermaid syntax: graph TD/LR for flowcharts, sequenceDiagram, classDiagram, erDiagram, mindmap, timeline, pie, etc.
+
 Return ONLY valid JSON. Russian language for all text content."""
                 raw = await run_claude(page_prompt, 120)
                 raw = raw.strip()
@@ -350,6 +354,10 @@ Return ONLY valid JSON. Russian language for all text content."""
                     extra = {}
                     if "verdict" in page_data:
                         extra["verdict"] = json.dumps(page_data["verdict"], ensure_ascii=False)
+                    if "diagram" in page_data:
+                        extra["diagram"] = page_data["diagram"]
+                    if "note" in page_data:
+                        extra["note"] = json.dumps(page_data["note"], ensure_ascii=False)
                     html = render_template(tpl, title, subtitle, json.dumps(data, ensure_ascii=False), extra)
                     if html:
                         url = save_page(html)
