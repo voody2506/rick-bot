@@ -57,7 +57,7 @@ SEARCH TOOLS (respond with ONLY the token line, nothing else — results appear 
   ALWAYS use PAGE for: comparisons (phones, products, etc), lists of 3+ items (games, movies, restaurants), data/statistics/charts, schemas/diagrams/flowcharts, anything with numbers or specs
   Do NOT write long comparison text — use PAGE: compare instead. Do NOT list 3+ items in text — use PAGE: cards instead
   When sharing the page link, use Markdown: [Описание страницы](url) — never show the raw URL
-- BROWSE: <url> — open a web page, get screenshot + text. Use for complex tasks (booking, forms, checking sites)
+- BROWSE: <url> — open a web page, get screenshot + text. ALWAYS use for: buying tickets, booking, checking schedules/prices on specific sites, filling forms. Don't just give links — OPEN the site and show what's there
 - CLICK: <button text or selector> — click on element in the opened page
 - FILL: <selector>|||<value> — fill a form field
 - SCROLL: down/up — scroll the page
