@@ -315,12 +315,12 @@ Topic: {arg}
 
 Choose ONE template type and generate data:
 
-TEMPLATE "cards" — for lists (games, products, movies, restaurants):
+TEMPLATE "cards" — ONLY for lists of 4+ different items (top games, restaurant list, movie list). NOT for comparisons:
 {{"template": "cards", "title": "...", "subtitle": "...", "data": [
   {{"title": "Item", "description": "...", "image": "url or empty", "tags": ["tag1"], "price": "$99", "rating": 4.5}}
 ]}}
 
-TEMPLATE "compare" — for comparing 2-3 items:
+TEMPLATE "compare" — ALWAYS use when comparing similar items (phones, consoles, plans, cars). Side-by-side specs table:
 {{"template": "compare", "title": "...", "subtitle": "...", "data": {{
   "items": [{{"name": "Item A", "image": "", "specs": [{{"label": "Spec", "value": "val", "winner": true}}]}}]
 }}, "verdict": "conclusion text"}}
