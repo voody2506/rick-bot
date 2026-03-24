@@ -64,9 +64,6 @@ async def post_init(application):
 
     from telegram import BotCommand
     await application.bot.set_my_commands([
-        BotCommand("start", "Запустить Рика"),
-        BotCommand("reset", "Сбросить контекст"),
-        BotCommand("forget", "Забыть всё о тебе"),
         BotCommand("quiet", "Тихий режим — только по @/имени"),
     ])
 
