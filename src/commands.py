@@ -206,6 +206,14 @@ _MODE_LABELS = {
 
 async def quiet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/quiet — cycle: off → listen → silent → off."""
+    logger.info("/quiet command received from chat %s", update.effective_chat.id)
+    if not update.message:
+        logger.warning("/quiet: update.message is None")
+        return
     chat_id = update.effective_chat.id
-    new_mode = cycle_mode(chat_id)
-    await update.message.reply_text(_MODE_LABELS[new_mode])
+    try:
+        new_mode = cycle_mode(chat_id)
+        logger.info("/quiet: chat %s → %s", chat_id, new_mode)
+        await update.message.reply_text(_MODE_LABELS[new_mode])
+    except Exception as e:
+        logger.exception("/quiet error: %s", e)
