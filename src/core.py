@@ -21,7 +21,7 @@ from src.claude import run_claude
 from src.media import (find_created_files, find_new_workdir_files, run_generator_scripts,
                         web_search, web_search_x, async_search_image, async_search_video)
 from src.browser import navigate, click, scroll, fill_form, close_session
-from src.pages import save_page
+from src.pages import save_page, render_template
 from src.skills import load_skills_for_chat
 from src.tts import generate_voice
 from src.memes import maybe_send_gif
@@ -283,30 +283,65 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
                 prompt += f"\n\n[Video results:\n{(results or 'nothing found')[:1500]}]\nRick:"
 
             elif token == "PAGE":
-                # Rick wants to create an interactive HTML page
-                # Ask Claude to generate the HTML
-                page_prompt = f"""Generate a complete, beautiful HTML page for: {arg}
+                # Rick wants to create a visual page from a template
+                # Format: PAGE: template_type | title | description
+                # Or: PAGE: description (auto-select template)
+                page_prompt = f"""Generate JSON data for a web page visualization.
 
-Requirements:
-- Single self-contained HTML file with inline CSS and JS
-- Modern dark theme design, mobile-friendly
-- Use Chart.js from CDN for charts/graphs if needed
-- Use clean typography, cards layout, gradients
-- Russian language for content
-- Include interactive elements where appropriate (tabs, filters, hover effects)
-- Title at the top, content organized in cards/sections
-- NO external dependencies except CDN libraries (Chart.js, etc)
-- Return ONLY the HTML code, nothing else"""
-                html = await run_claude(page_prompt, 120)
-                # Extract HTML if wrapped in code block
-                html_match = re.search(r'```(?:html)?\s*\n(.+?)```', html, re.DOTALL)
-                if html_match:
-                    html = html_match.group(1)
-                if html.strip().startswith("<!") or html.strip().startswith("<html"):
-                    url = save_page(html)
-                    prompt += f"\n\n[Page created: {url}]\nShare this link with the user and briefly describe what's on the page.\nRick:"
-                else:
-                    prompt += "\n\n[Page generation failed — invalid HTML.]\nRick:"
+Topic: {arg}
+
+Choose ONE template type and generate data:
+
+TEMPLATE "cards" — for lists (games, products, movies, restaurants):
+{{"template": "cards", "title": "...", "subtitle": "...", "data": [
+  {{"title": "Item", "description": "...", "image": "url or empty", "tags": ["tag1"], "price": "$99", "rating": 4.5}}
+]}}
+
+TEMPLATE "compare" — for comparing 2-3 items:
+{{"template": "compare", "title": "...", "subtitle": "...", "data": {{
+  "items": [{{"name": "Item A", "image": "", "specs": [{{"label": "Spec", "value": "val", "winner": true}}]}}]
+}}, "verdict": "conclusion text"}}
+
+TEMPLATE "chart" — for graphs/statistics:
+{{"template": "chart", "title": "...", "subtitle": "...", "data": {{
+  "chart_type": "line|bar|pie|doughnut",
+  "labels": ["Jan", "Feb"],
+  "datasets": [{{"label": "Series", "data": [10, 20], "fill": true}}],
+  "stats": [{{"value": "123", "label": "Total"}}],
+  "note": "analysis text"
+}}}}
+
+Return ONLY valid JSON. Russian language for all text content."""
+                raw = await run_claude(page_prompt, 120)
+                raw = raw.strip()
+                if raw.startswith("```"):
+                    raw = "\n".join(raw.split("\n")[1:])
+                if raw.endswith("```"):
+                    raw = "\n".join(raw.split("\n")[:-1])
+                try:
+                    page_data = json.loads(raw.strip())
+                    tpl = page_data.get("template", "cards")
+                    title = page_data.get("title", "Rick's Page")
+                    subtitle = page_data.get("subtitle", "")
+                    data = page_data.get("data", [])
+                    extra = {}
+                    if "verdict" in page_data:
+                        extra["verdict"] = json.dumps(page_data["verdict"], ensure_ascii=False)
+                    html = render_template(tpl, title, subtitle, json.dumps(data, ensure_ascii=False), extra)
+                    if html:
+                        url = save_page(html)
+                        prompt += f"\n\n[Page created: {url}]\nShare this link and briefly describe what's on the page.\nRick:"
+                    else:
+                        prompt += "\n\n[Template not found.]\nRick:"
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(f"PAGE data parse failed: {e}")
+                    # Fallback: generate raw HTML
+                    html = raw if raw.strip().startswith("<!") else None
+                    if html:
+                        url = save_page(html)
+                        prompt += f"\n\n[Page created: {url}]\nShare this link.\nRick:"
+                    else:
+                        prompt += "\n\n[Page generation failed.]\nRick:"
 
         except Exception as e:
             logger.warning(f"Token {token} failed: {e}")
