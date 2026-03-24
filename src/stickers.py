@@ -5,7 +5,7 @@ from src.mood_detect import detect_mood
 
 logger = logging.getLogger(__name__)
 
-STICKER_CHANCE = 0.20  # 20% chance
+STICKER_CHANCE = 0.10  # 10% chance
 
 # Sticker file_ids grouped by mood (from RickAndMorty, MrPoopy, Meeseeks packs)
 STICKERS = {

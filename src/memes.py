@@ -7,7 +7,7 @@ from src.mood_detect import detect_mood
 
 logger = logging.getLogger(__name__)
 
-GIF_CHANCE = 0.12  # 12% chance
+GIF_CHANCE = 0.08  # 8% chance
 
 # Mood -> Rick and Morty themed GIF searches
 MOOD_SEARCHES = {
