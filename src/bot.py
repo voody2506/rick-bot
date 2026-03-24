@@ -68,9 +68,6 @@ async def post_init(application):
         BotCommand("reset", "Сбросить контекст"),
         BotCommand("forget", "Забыть всё о тебе"),
         BotCommand("quiet", "Тихий режим — только по @/имени"),
-        BotCommand("news", "Ежедневные новости"),
-        BotCommand("schedule", "Запланированные задачи"),
-        BotCommand("skill", "Навыки из ClawHub"),
     ])
 
     me = await application.bot.get_me()
