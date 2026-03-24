@@ -151,7 +151,19 @@ def build_prompt(chat_id, user_message, group_context_lines=None):
     return prompt
 
 
-async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=None, user_id=None):
+THINKING_MESSAGES = {
+    "SEARCH": ["Секунду, гуглю через портал...", "Ищу, не мешай...", "Портал в гугл-измерение открыт..."],
+    "SEARCH_X": ["Смотрю что пишут в X...", "Залез в твиттер, фу..."],
+    "RESEARCH": ["Исследую вопрос, это серьёзно...", "Открыл три портала для анализа...", "Проверяю факты, секунду..."],
+    "BROWSE": ["Захожу на сайт...", "Открываю браузер, не отвлекай..."],
+    "CODE": ["Считаю...", "Запускаю код..."],
+    "IMAGE": ["Ищу картинку...", "Сканирую измерения в поисках фото..."],
+    "VIDEO": ["Ищу видео...", "Сканирую YouTube..."],
+    "PAGE": ["Рисую страницу, секунду...", "Собираю визуализацию..."],
+}
+
+
+async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=None, user_id=None, status_callback=None):
     init_chat(chat_id)
     start_time = time.time()
     update_mood(chat_id, user_message or "")
@@ -194,6 +206,17 @@ async def ask_rick(chat_id, user_message, image_path=None, group_context_lines=N
         token = token_match.group(1).upper()
         arg = token_match.group(2).strip()
         logger.info(f"Token loop [{iteration+1}]: {token}: {arg[:80]}")
+
+        # Send text before the token as an intermediate message
+        if status_callback:
+            pre_text = response_stripped[:token_match.start()].strip()
+            if not pre_text and token in THINKING_MESSAGES:
+                pre_text = random.choice(THINKING_MESSAGES[token])
+            if pre_text:
+                try:
+                    await status_callback(pre_text)
+                except Exception:
+                    pass
 
         try:
             if token == "BROWSE":

@@ -25,6 +25,16 @@ from src.core import ask_rick, send_response, is_rate_limited
 logger = logging.getLogger(__name__)
 
 
+def _make_status_callback(bot, chat_id):
+    """Create a callback that sends a short status message to the chat."""
+    async def cb(text):
+        try:
+            await bot.send_message(chat_id=chat_id, text=text)
+        except Exception:
+            pass
+    return cb
+
+
 def _get_forward_source(origin) -> str:
     """Extract source name from a MessageOrigin object (v21+ API)."""
     if hasattr(origin, "chat"):  # MessageOriginChannel
@@ -87,7 +97,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_response(msg, response, [img] if img else [], context)
         else:
             init_chat(chat_id)
-            response, files = await ask_rick(chat_id, f"[voice message]: {text}", user_id=user.id if user else None)
+            response, files = await ask_rick(chat_id, f"[voice message]: {text}", user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
             await send_response(msg, response, files, context)
 
     finally:
@@ -142,7 +152,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await send_response(msg, response, [img] if img else [], context)
                 else:
                     init_chat(chat_id)
-                    response, files = await ask_rick(chat_id, f"[audio file]: {text}", user_id=user.id if user else None)
+                    response, files = await ask_rick(chat_id, f"[audio file]: {text}", user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
                     await send_response(msg, response, files, context)
                 return
         except Exception as e:
@@ -187,7 +197,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         init_chat(chat_id)
-        response, files = await ask_rick(chat_id, user_message, user_id=user.id if user else None)
+        response, files = await ask_rick(chat_id, user_message, user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
         await send_response(msg, response, files, context)
 
     if doc_path:
@@ -388,7 +398,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     typing = asyncio.create_task(keep_typing())
     try:
         # ask_rick now includes full context even with image_path
-        response, files = await ask_rick(chat_id, user_text, image_path=image_path, user_id=user.id if user else None)
+        response, files = await ask_rick(chat_id, user_text, image_path=image_path, user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
     finally:
         typing.cancel()
         try: os.unlink(image_path)
@@ -613,7 +623,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif directly_addressed:
             # Directly addressed — full prompt with file creation support
             ctx_lines = list(group_context.get(chat_id, []))
-            response, files = await ask_rick(chat_id, user_text, group_context_lines=ctx_lines, user_id=user.id if user else None)
+            response, files = await ask_rick(chat_id, user_text, group_context_lines=ctx_lines, user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
             group_context[chat_id].append(f"Rick: {response}")
         else:
             # Random interjection — lightweight prompt
@@ -626,7 +636,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 typing.cancel()
                 return  # Rick decided to SKIP
     else:
-        response, files = await ask_rick(chat_id, user_text, user_id=user.id if user else None)
+        response, files = await ask_rick(chat_id, user_text, user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
     typing.cancel()
 
     await send_response(msg, response, files, context)
