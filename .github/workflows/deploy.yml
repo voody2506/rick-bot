@@ -60,7 +60,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /home/rickbot/rick_bot
-            mkdir -p pages
+            mkdir -p pages && chown 1000:1000 pages
             docker compose pull
             docker compose up -d
             docker image prune -af
