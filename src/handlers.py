@@ -501,13 +501,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if msg.chat.type in ("group", "supergroup"):
         bot_username = context.bot.username or ""
-        text_lower = user_text.lower()
+        # Use original message text for direct-address detection (not enriched with reply quotes)
+        original_lower = (msg.text or "").lower()
 
         # Determine if Rick is directly addressed
-        is_mentioned = bot_username and f"@{bot_username.lower()}" in text_lower
+        is_mentioned = bot_username and f"@{bot_username.lower()}" in original_lower
         is_reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
                            and msg.reply_to_message.from_user.username == bot_username)
-        is_name_called = any(name in text_lower for name in RICK_NAMES)
+        is_name_called = any(name in original_lower for name in RICK_NAMES)
         directly_addressed = is_mentioned or is_reply_to_bot or is_name_called
 
         # Quiet modes: silent skips everything, listen saves context but doesn't respond
