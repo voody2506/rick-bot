@@ -86,7 +86,11 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Handle both group and private via send_response (fixes missing voice/sticker/gif)
         if is_group:
-            if is_quiet(chat_id):
+            # Quiet modes: check if Rick is directly addressed via reply
+            bot_username = context.bot.username or ""
+            reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
+                           and msg.reply_to_message.from_user.username == bot_username)
+            if is_quiet(chat_id) and not reply_to_bot:
                 if not is_silent(chat_id):
                     group_context[chat_id].append(f"{username}: [voice]: {text}")
                 return
@@ -145,7 +149,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if text:
                 logger.info(f"Audio doc transcribed: {text[:100]}")
                 if is_group:
-                    if is_quiet(chat_id):
+                    bot_username = context.bot.username or ""
+                    reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
+                                   and msg.reply_to_message.from_user.username == bot_username)
+                    if is_quiet(chat_id) and not reply_to_bot:
                         if not is_silent(chat_id):
                             group_context[chat_id].append(f"{username}: [audio file]: {text}")
                         return
@@ -193,6 +200,14 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_message += f" Caption: \"{caption}\""
 
     if is_group:
+        # Quiet modes for documents
+        if is_quiet(chat_id):
+            if not is_silent(chat_id):
+                group_context[chat_id].append(f"{username}: [sent file: {filename}]")
+            if doc_path:
+                try: os.unlink(doc_path)
+                except Exception: pass
+            return
         group_context[chat_id].append(f"{username}: [sent file: {filename}]")
         response = await maybe_respond_in_group(chat_id, username, user_message)
         if not response:
@@ -229,7 +244,6 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     if is_group:
-        group_context[chat_id].append(f"{username}: [video]")
         bot_username = context.bot.username or ""
         caption = msg.caption or ""
         caption_lower = caption.lower()
@@ -237,7 +251,15 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                        and msg.reply_to_message.from_user.username == bot_username)
         has_rick = "рик" in caption_lower or "rick" in caption_lower or bool(
             bot_username and f"@{bot_username.lower()}" in caption_lower)
-        if not has_rick and not reply_to_bot:
+        directly_addressed = has_rick or reply_to_bot
+        # Quiet modes
+        if is_quiet(chat_id) and not directly_addressed:
+            if not is_silent(chat_id):
+                group_context[chat_id].append(f"{username}: [video]")
+            return
+        if not is_silent(chat_id):
+            group_context[chat_id].append(f"{username}: [video]")
+        if not directly_addressed:
             return
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
@@ -330,7 +352,23 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     if chat_type in ("group", "supergroup"):
-        group_context[chat_id].append(f"{username}: [photo]")
+        bot_username = context.bot.username or ""
+        reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
+                       and msg.reply_to_message.from_user.username == bot_username)
+        caption = msg.caption or ""
+        caption_lower = caption.lower()
+        has_rick_in_caption = "рик" in caption_lower or "rick" in caption_lower or bool(
+            bot_username and f"@{bot_username.lower()}" in caption_lower)
+        directly_addressed = has_rick_in_caption or reply_to_bot
+
+        # Quiet modes
+        if is_quiet(chat_id) and not directly_addressed:
+            if not is_silent(chat_id):
+                group_context[chat_id].append(f"{username}: [photo]")
+            return
+
+        if not is_silent(chat_id):
+            group_context[chat_id].append(f"{username}: [photo]")
 
         photo = msg.photo[-1]
         WORK_DIR.mkdir(parents=True, exist_ok=True)
@@ -343,15 +381,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         group_recent_photos[chat_id] = {"path": image_path, "ts": time.time()}
 
-        bot_username = context.bot.username or ""
-        reply_to_bot = (msg.reply_to_message and msg.reply_to_message.from_user
-                       and msg.reply_to_message.from_user.username == bot_username)
-        caption = msg.caption or ""
-        caption_lower = caption.lower()
-        has_rick_in_caption = "рик" in caption_lower or "rick" in caption_lower or bool(
-            bot_username and f"@{bot_username.lower()}" in caption_lower)
-
-        if not has_rick_in_caption and not reply_to_bot:
+        if not directly_addressed:
             return
 
         user_text = caption if caption else "What's in this photo? Describe it Rick-style."
