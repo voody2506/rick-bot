@@ -177,7 +177,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_message = f"User sent file \"{filename}\""
         if caption:
             user_message += f" with caption: \"{caption}\""
-        user_message += f"\n\n[File content:\n{doc_text}]"
+        user_message += f"\n\n[File saved at: {doc_path}]\n[File content:\n{doc_text}]"
+        user_message += "\n\nIf the user asks to edit/fix this file, use CODE: to modify it with python-docx/openpyxl and save the result to the work directory."
     else:
         user_message = f"User sent a file: {filename}."
         if caption:
@@ -200,9 +201,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response, files = await ask_rick(chat_id, user_message, user_id=user.id if user else None, status_callback=_make_status_callback(context.bot, chat_id))
         await send_response(msg, response, files, context)
 
-    if doc_path:
-        try: os.unlink(doc_path)
-        except Exception: pass
+    # doc_path cleaned up by cleanup_work_dir() after 1 hour
 
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
