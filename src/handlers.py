@@ -12,6 +12,7 @@ from telegram.ext import ContextTypes
 
 import random
 from src.config import WORK_DIR, RICK_NAMES, GROUP_RANDOM_CHANCE
+from src.quiet import is_quiet
 from src.memory import (group_context, group_members,
                         group_recent_photos, init_chat)
 from src.claude import run_claude
@@ -86,7 +87,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Handle both group and private via send_response (fixes missing voice/sticker/gif)
         if is_group:
             group_context[chat_id].append(f"{username}: [voice]: {text}")
-            # Always transcribe into context, but only respond via random chance
+            if is_quiet(chat_id):
+                return
             if random.random() > GROUP_RANDOM_CHANCE:
                 return  # Rick heard it, saved to context, but stays silent
             response = await maybe_respond_in_group(chat_id, username, f"[voice]: {text}")
@@ -142,6 +144,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"Audio doc transcribed: {text[:100]}")
                 if is_group:
                     group_context[chat_id].append(f"{username}: [audio file]: {text}")
+                    if is_quiet(chat_id):
+                        return
                     if random.random() > GROUP_RANDOM_CHANCE:
                         return
                     response = await maybe_respond_in_group(chat_id, username, f"[audio file]: {text}")
@@ -477,6 +481,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                            and msg.reply_to_message.from_user.username == bot_username)
         is_name_called = any(name in text_lower for name in RICK_NAMES)
         directly_addressed = is_mentioned or is_reply_to_bot or is_name_called
+
+        # Quiet mode: only respond when directly addressed
+        if is_quiet(chat_id) and not directly_addressed:
+            return
 
         # Pre-filter: Claude decides whether to respond or SKIP
         if not directly_addressed and random.random() > GROUP_RANDOM_CHANCE:

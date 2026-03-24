@@ -13,7 +13,8 @@ from telegram.ext import Application, MessageHandler, CommandHandler, filters
 from src.config import BOT_TOKEN, MEMORY_DIR, WORK_DIR, SKILLS_DIR, TOKENS_DIR
 from src.handlers import handle_message, handle_voice, handle_photo, handle_video, handle_document
 from src.commands import (start_command, reset_command, forget_command,
-                          skill_command, schedule_command, news_command)
+                          skill_command, schedule_command, news_command,
+                          quiet_command)
 from src.scheduler import scheduler
 from src.scenario import load_scenario, generate_daily_scenario
 from src.news import load_news_config, send_daily_news
@@ -61,6 +62,17 @@ async def post_init(application):
         except Exception as e:
             logger.error(f"Failed to register news job for chat {cid}: {e}")
 
+    from telegram import BotCommand
+    await application.bot.set_my_commands([
+        BotCommand("start", "Запустить Рика"),
+        BotCommand("reset", "Сбросить контекст"),
+        BotCommand("forget", "Забыть всё о тебе"),
+        BotCommand("quiet", "Тихий режим — только по @/имени"),
+        BotCommand("news", "Ежедневные новости"),
+        BotCommand("schedule", "Запланированные задачи"),
+        BotCommand("skill", "Навыки из ClawHub"),
+    ])
+
     me = await application.bot.get_me()
     logger.info(f"@{me.username} — Rick v11 online (scheduler started, daily scenario)")
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -79,6 +91,7 @@ def main():
     app.add_handler(CommandHandler("skill", skill_command))
     app.add_handler(CommandHandler("news", news_command))
     app.add_handler(CommandHandler("schedule", schedule_command))
+    app.add_handler(CommandHandler("quiet", quiet_command))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, handle_video))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
