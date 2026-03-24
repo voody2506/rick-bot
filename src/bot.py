@@ -64,7 +64,7 @@ async def post_init(application):
 
     from telegram import BotCommand
     await application.bot.set_my_commands([
-        BotCommand("quiet", "Тихий режим — только по @/имени"),
+        BotCommand("quiet", "Режимы: обычный / прослушка / тишина"),
     ])
 
     me = await application.bot.get_me()

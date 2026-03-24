@@ -12,7 +12,7 @@ from telegram.ext import ContextTypes
 
 import random
 from src.config import WORK_DIR, RICK_NAMES, GROUP_RANDOM_CHANCE
-from src.quiet import is_quiet
+from src.quiet import is_quiet, is_silent
 from src.memory import (group_context, group_members,
                         group_recent_photos, init_chat)
 from src.claude import run_claude
@@ -87,6 +87,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Handle both group and private via send_response (fixes missing voice/sticker/gif)
         if is_group:
             if is_quiet(chat_id):
+                if not is_silent(chat_id):
+                    group_context[chat_id].append(f"{username}: [voice]: {text}")
                 return
             group_context[chat_id].append(f"{username}: [voice]: {text}")
             if random.random() > GROUP_RANDOM_CHANCE:
@@ -144,6 +146,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.info(f"Audio doc transcribed: {text[:100]}")
                 if is_group:
                     if is_quiet(chat_id):
+                        if not is_silent(chat_id):
+                            group_context[chat_id].append(f"{username}: [audio file]: {text}")
                         return
                     group_context[chat_id].append(f"{username}: [audio file]: {text}")
                     if random.random() > GROUP_RANDOM_CHANCE:
@@ -475,8 +479,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_name_called = any(name in text_lower for name in RICK_NAMES)
         directly_addressed = is_mentioned or is_reply_to_bot or is_name_called
 
-        # Quiet mode: skip entirely unless directly addressed
+        # Quiet modes: silent skips everything, listen saves context but doesn't respond
         if is_quiet(chat_id) and not directly_addressed:
+            if not is_silent(chat_id):
+                # Listen mode: save context
+                if user:
+                    group_members[chat_id][user.id] = {
+                        "name": user.first_name or user.username or "Morty",
+                        "username": user.username
+                    }
+                group_context[chat_id].append(f"{username}: {user_text}")
             return
 
         if user:

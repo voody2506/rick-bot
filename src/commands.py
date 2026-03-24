@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.config import OWNER_ID, SKILLS_DIR
 from src.memory import chat_histories, save_history, load_facts, save_facts
-from src.quiet import toggle_quiet
+from src.quiet import cycle_mode, MODE_OFF, MODE_LISTEN, MODE_SILENT
 from src.skills import search_clawhub, install_clawhub_skill
 from src.scheduler import scheduler
 from src.news import load_news_config, save_news_config, send_daily_news
@@ -197,11 +197,15 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Unknown command '{subcmd}'. Use: list, cancel")
 
 
+_MODE_LABELS = {
+    MODE_OFF: "Обычный режим. Рик снова в деле.",
+    MODE_LISTEN: "Режим прослушки. Читаю, но молчу. Отвечаю только на @ или по имени.",
+    MODE_SILENT: "Полная тишина. Не читаю, не отвечаю. Только на @ или по имени.",
+}
+
+
 async def quiet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/quiet — toggle quiet mode. Rick only responds when mentioned."""
+    """/quiet — cycle: off → listen → silent → off."""
     chat_id = update.effective_chat.id
-    now_quiet = toggle_quiet(chat_id)
-    if now_quiet:
-        await update.message.reply_text("Тихий режим включён. Отвечаю только на @ или по имени.")
-    else:
-        await update.message.reply_text("Тихий режим выключен.")
+    new_mode = cycle_mode(chat_id)
+    await update.message.reply_text(_MODE_LABELS[new_mode])
