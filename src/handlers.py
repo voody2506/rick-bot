@@ -86,9 +86,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Handle both group and private via send_response (fixes missing voice/sticker/gif)
         if is_group:
-            group_context[chat_id].append(f"{username}: [voice]: {text}")
             if is_quiet(chat_id):
                 return
+            group_context[chat_id].append(f"{username}: [voice]: {text}")
             if random.random() > GROUP_RANDOM_CHANCE:
                 return  # Rick heard it, saved to context, but stays silent
             response = await maybe_respond_in_group(chat_id, username, f"[voice]: {text}")
@@ -143,9 +143,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if text:
                 logger.info(f"Audio doc transcribed: {text[:100]}")
                 if is_group:
-                    group_context[chat_id].append(f"{username}: [audio file]: {text}")
                     if is_quiet(chat_id):
                         return
+                    group_context[chat_id].append(f"{username}: [audio file]: {text}")
                     if random.random() > GROUP_RANDOM_CHANCE:
                         return
                     response = await maybe_respond_in_group(chat_id, username, f"[audio file]: {text}")
@@ -465,13 +465,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_text += "\n\n" + "\n\n".join(url_contents)
 
     if msg.chat.type in ("group", "supergroup"):
-        if user:
-            group_members[chat_id][user.id] = {
-                "name": user.first_name or user.username or "Morty",
-                "username": user.username
-            }
-        group_context[chat_id].append(f"{username}: {user_text}")
-
         bot_username = context.bot.username or ""
         text_lower = user_text.lower()
 
@@ -482,9 +475,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_name_called = any(name in text_lower for name in RICK_NAMES)
         directly_addressed = is_mentioned or is_reply_to_bot or is_name_called
 
-        # Quiet mode: only respond when directly addressed
+        # Quiet mode: skip entirely unless directly addressed
         if is_quiet(chat_id) and not directly_addressed:
             return
+
+        if user:
+            group_members[chat_id][user.id] = {
+                "name": user.first_name or user.username or "Morty",
+                "username": user.username
+            }
+        group_context[chat_id].append(f"{username}: {user_text}")
 
         # Pre-filter: Claude decides whether to respond or SKIP
         if not directly_addressed and random.random() > GROUP_RANDOM_CHANCE:
